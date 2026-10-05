@@ -306,11 +306,31 @@ export default function AmongUsAdmin() {
   // ROOM ALLOTMENT & SQUAD MANAGEMENT ACTIONS
   // ============================================================================
 
+  // Cryptographically secure random helper for game integrity and CodeQL compliance
+  const getSecureRandomInt = (max: number): number => {
+    if (max <= 0) return 0;
+    const array = new Uint32Array(1);
+    if (typeof window !== 'undefined' && window.crypto) {
+      window.crypto.getRandomValues(array);
+      return array[0] % max;
+    }
+    return Math.floor(Math.random() * max);
+  };
+
+  const secureShuffle = <T,>(arr: T[]): T[] => {
+    const result = [...arr];
+    for (let i = result.length - 1; i > 0; i--) {
+      const j = getSecureRandomInt(i + 1);
+      [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
+  };
+
   const handleRandomizeRoomsAndImpostors = async () => {
     if (!permissions?.canAllotRoomsAndImpostors || teams.length === 0) return;
 
     const updated = [...teams];
-    const shuffledRooms = [...AMONG_US_ROOMS].sort(() => 0.5 - Math.random());
+    const shuffledRooms = secureShuffle([...AMONG_US_ROOMS]);
 
     updated.forEach((team, index) => {
       team.assignedRoom = shuffledRooms[index % shuffledRooms.length];
@@ -322,7 +342,7 @@ export default function AmongUsAdmin() {
     const countToAssign = Math.min(2, updated.length);
 
     while (impostorIndices.size < countToAssign) {
-      const randIdx = Math.floor(Math.random() * updated.length);
+      const randIdx = getSecureRandomInt(updated.length);
       impostorIndices.add(randIdx);
     }
 
@@ -331,7 +351,7 @@ export default function AmongUsAdmin() {
       team.isImpostor = true;
       const player =
         team.members && team.members.length > 0
-          ? team.members[Math.floor(Math.random() * team.members.length)]
+          ? team.members[getSecureRandomInt(team.members.length)]
           : team.leaderName;
       team.impostorPlayerName = player;
     });

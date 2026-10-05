@@ -13,8 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 ## [Unreleased]
-### Added
-- *Add your upcoming changes here under Added, Changed, Deprecated, Removed, Fixed, or Security.*
+### Security
+- **CodeQL Alert #4 & #5 (Insecure Randomness / CWE-338)**: Replaced pseudo-random `Math.random()` in `AmongUsAdmin.tsx` and `gameDatabase.ts` with cryptographically secure `window.crypto.getRandomValues()` for covert role allotment, sector shuffling, and badge code generation.
+- **CodeQL Alert #6 (Clear-Text Storage of Sensitive Information)**: Sanitized admin user records in `gameDatabase.ts` prior to caching in `localStorage` to strip credentials, and removed clear-text password fields from default fallback profiles.
+- **CodeQL Alert #2 (Missing Rate Limiting)**: Integrated `express-rate-limit` on the forensic clue verification endpoint (`/api/mystery/verify`) to safeguard against brute-force attacks.
+- **CodeQL Alert #1 (Permissive CORS Configuration)**: Replaced wildcard `*` with strict origin validation in backend `index.ts` across Express HTTP and Socket.IO servers.
+- **CodeQL Alert #7 & #8 (Workflow Permissions)**: Added top-level `permissions: contents: read` blocks across all GitHub Actions workflows (`ci.yml` and `security.yml`).
+- **Dependabot PR Lockdown**: Set `open-pull-requests-limit: 0` in `.github/dependabot.yml` and closed 14 automated PRs to protect frontend/backend framework stability 48h before the festival kickoff.
 
 ---
 

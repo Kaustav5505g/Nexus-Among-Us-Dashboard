@@ -273,7 +273,6 @@ const DEFAULT_ADMIN_USERS: AdminUser[] = [
     email: 'tejas@nexus.org',
     role: 'super_admin',
     title: 'Lead Operations Facilitator (Super Admin)',
-    password: 'master2026',
   },
   {
     id: 'a0000000-0000-0000-0000-000000000002',
@@ -283,7 +282,6 @@ const DEFAULT_ADMIN_USERS: AdminUser[] = [
     email: 'aarav@nexus.org',
     role: 'admin',
     title: 'Station Operations Admin',
-    password: 'admin2026',
   },
   {
     id: 'a0000000-0000-0000-0000-000000000003',
@@ -294,7 +292,6 @@ const DEFAULT_ADMIN_USERS: AdminUser[] = [
     role: 'moderator',
     pocRoom: 'Reactor',
     title: 'Field Moderator & Reactor Sector POC',
-    password: 'poc2026',
   },
 ];
 
@@ -395,17 +392,29 @@ const saveLocalClues = (clues: MysteryClue[]) => {
 const getLocalAdminUsers = (): AdminUser[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.ADMINS);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.map((u: any) => {
+          const { password, ...safeUser } = u;
+          return safeUser as AdminUser;
+        });
+      }
+    }
   } catch (e) {
     console.error('Error reading local admins', e);
   }
-  localStorage.setItem(STORAGE_KEYS.ADMINS, JSON.stringify(DEFAULT_ADMIN_USERS));
   return DEFAULT_ADMIN_USERS;
 };
 
 const saveLocalAdminUsers = (users: AdminUser[]) => {
-  localStorage.setItem(STORAGE_KEYS.ADMINS, JSON.stringify(users));
-  window.dispatchEvent(new CustomEvent('nexus:admins_updated', { detail: users }));
+  // Strip sensitive credentials prior to caching in web browser storage
+  const sanitizedUsers = users.map((u: any) => {
+    const { password, ...safeUser } = u;
+    return safeUser as AdminUser;
+  });
+  localStorage.setItem(STORAGE_KEYS.ADMINS, JSON.stringify(sanitizedUsers));
+  window.dispatchEvent(new CustomEvent('nexus:admins_updated', { detail: sanitizedUsers }));
 };
 
 const getLocalLogs = (): ActivityLogItem[] => {
@@ -435,6 +444,26 @@ const getLocalLogs = (): ActivityLogItem[] => {
   return defaultLogs;
 };
 
+// Cryptographically secure random generators for IDs and badge codes
+const getSecureRandomHex = (bytes = 4): string => {
+  if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
+    const arr = new Uint8Array(bytes);
+    window.crypto.getRandomValues(arr);
+    return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
+  }
+  return Date.now().toString(16).slice(-bytes * 2);
+};
+
+const getSecureBadgeCode = (): string => {
+  if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
+    const arr = new Uint16Array(1);
+    window.crypto.getRandomValues(arr);
+    const num = 1000 + (arr[0] % 9000);
+    return `NX-${num}`;
+  }
+  return `NX-${Date.now().toString().slice(-4)}`;
+};
+
 const addLocalLog = (
   type: ActivityLogItem['type'],
   message: string,
@@ -443,7 +472,7 @@ const addLocalLog = (
 ) => {
   const current = getLocalLogs();
   const newLog: ActivityLogItem = {
-    id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+    id: `log-${Date.now()}-${getSecureRandomHex(3)}`,
     type,
     message,
     severity,
@@ -721,7 +750,7 @@ export const GameDatabase = {
 
   async createTeam(teamData: Partial<Team>): Promise<Team> {
     const newTeam: Team = {
-      id: teamData.id || `team-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      id: teamData.id || `team-${Date.now()}-${getSecureRandomHex(3)}`,
       name: teamData.name || 'New Squad',
       leaderName: teamData.leaderName || 'Squad Leader',
       email: teamData.email || 'squad@nexus.org',
@@ -733,7 +762,7 @@ export const GameDatabase = {
       cluesSolved: 0,
       status: teamData.status || 'active',
       registeredEvents: teamData.registeredEvents || ['Coded Chaos (Among Us)'],
-      badgeCode: teamData.badgeCode || `NX-${Math.floor(1000 + Math.random() * 9000)}`,
+      badgeCode: teamData.badgeCode || getSecureBadgeCode(),
       assignedRoom: teamData.assignedRoom || 'Cafeteria',
       isImpostor: Boolean(teamData.isImpostor),
       impostorPlayerName: teamData.impostorPlayerName,
@@ -1510,7 +1539,7 @@ export const GameDatabase = {
     title?: string;
   }): Promise<AdminUser> {
     const newUser: AdminUser = {
-      id: `usr-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      id: `usr-${Date.now()}-${getSecureRandomHex(3)}`,
       facilitatorId: data.facilitatorId.toUpperCase(),
       username: data.username.toLowerCase(),
       name: data.name,
