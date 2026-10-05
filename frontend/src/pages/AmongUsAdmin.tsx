@@ -708,17 +708,21 @@ export default function AmongUsAdmin() {
       <div className="min-h-screen bg-[#f8f9fa] text-neutral-900 flex items-center justify-center p-6">
         <div className="w-full max-w-md bg-white border border-neutral-300 rounded-3xl p-8 sm:p-10 shadow-sm">
           <div className="text-center mb-8">
-            <div className="w-14 h-14 bg-black text-white rounded-2xl flex items-center justify-center mx-auto mb-4 font-bold text-xl shadow-sm">
-              NX
+            <div className="w-16 h-16 rounded-2xl border border-neutral-200 bg-white p-1 mx-auto mb-4 shadow-sm flex items-center justify-center">
+              <img
+                src="/logo.jpeg"
+                alt="NEXUS Insignia"
+                className="w-full h-full object-contain rounded-xl"
+              />
             </div>
             <span className="text-[11px] font-mono uppercase tracking-widest text-neutral-500 block mb-1">
-              OPERATIONS COMMAND GATE
+              NEXUS OPERATIONS GATE
             </span>
             <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
-              Facilitator Clearance Gate
+              Admin Login
             </h1>
             <p className="text-xs text-neutral-500 mt-1">
-              Enter your official Facilitator ID and security passcode
+              Enter your credentials to enter the operations deck
             </p>
           </div>
 
@@ -744,23 +748,22 @@ export default function AmongUsAdmin() {
           >
             <div>
               <label className="text-xs font-bold text-neutral-700 block mb-1.5 uppercase tracking-wider">
-                Facilitator ID / Clearance Code
+                Username / Facilitator ID
               </label>
               <input
                 type="text"
-                placeholder="e.g. NX-SUPER-01, NX-ADMIN-02, NX-POC-03"
+                placeholder="Enter username"
                 value={loginId}
                 onChange={e => setLoginId(e.target.value)}
-                className="w-full bg-white border border-neutral-300 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-black font-mono placeholder:font-sans placeholder:text-neutral-400 transition"
+                className="w-full bg-white border border-neutral-300 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-black placeholder:text-neutral-400 transition"
                 required
                 autoComplete="username"
-                autoCapitalize="characters"
               />
             </div>
 
             <div>
               <label className="text-xs font-bold text-neutral-700 block mb-1.5 uppercase tracking-wider">
-                Security Passcode
+                Password
               </label>
               <input
                 type="password"
@@ -778,33 +781,9 @@ export default function AmongUsAdmin() {
               disabled={isLoggingIn}
               className="w-full py-3.5 bg-black text-white font-bold text-xs uppercase tracking-wider rounded-xl hover:bg-neutral-800 active:scale-98 transition shadow-sm mt-3 disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {isLoggingIn ? 'Verifying Clearance...' : 'Authenticate & Enter Deck'}
+              {isLoggingIn ? 'Verifying Credentials...' : 'Sign In'}
             </button>
           </form>
-
-          {/* Reference Clearance Tiers */}
-          <div className="mt-8 pt-6 border-t border-neutral-100">
-            <span className="text-[10px] font-mono text-neutral-400 uppercase tracking-widest block mb-2.5">
-              OFFICIAL FACILITATOR CLEARANCE TIERS
-            </span>
-            <div className="space-y-2 text-xs font-mono">
-              <div className="flex items-center justify-between p-2 rounded-lg bg-neutral-50 border border-neutral-100">
-                <span className="font-semibold text-neutral-800">NX-SUPER-01</span>
-                <span className="text-neutral-500 text-[11px]">Level 3 Master Admin</span>
-              </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-neutral-50 border border-neutral-100">
-                <span className="font-semibold text-neutral-800">NX-ADMIN-02</span>
-                <span className="text-neutral-500 text-[11px]">Level 2 Event Admin</span>
-              </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-neutral-50 border border-neutral-100">
-                <span className="font-semibold text-neutral-800">NX-POC-03</span>
-                <span className="text-neutral-500 text-[11px]">Level 1 Sector POC</span>
-              </div>
-            </div>
-            <p className="text-[11px] text-neutral-400 mt-3 text-center">
-              All facilitator sessions are cryptographically logged to the station audit trail.
-            </p>
-          </div>
         </div>
       </div>
     );
@@ -820,8 +799,12 @@ export default function AmongUsAdmin() {
       <header className="bg-white border-b border-neutral-200 sticky top-0 z-30 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-9 h-9 bg-black text-white rounded-xl flex items-center justify-center font-bold text-sm shadow-sm">
-              NX
+            <div className="w-10 h-10 rounded-xl border border-neutral-200 bg-white p-0.5 shadow-sm flex items-center justify-center">
+              <img
+                src="/logo.jpeg"
+                alt="NEXUS Insignia"
+                className="w-full h-full object-contain rounded-lg"
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">

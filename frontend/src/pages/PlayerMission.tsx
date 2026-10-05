@@ -398,25 +398,32 @@ export default function PlayerMission() {
   };
 
   // ============================================================================
-  // RENDER A: AUTHENTIC LOGIN PORTAL STAGE (Unauthenticated)
+  // RENDER A: AUTHENTIC MOBILE-FIRST LOGIN PORTAL (Unauthenticated)
   // ============================================================================
   if (!team) {
     return (
-      <div className="min-h-screen bg-[#050816] text-white flex items-center justify-center relative overflow-hidden select-none p-4">
-        {/* Blurred ambient poster backdrop */}
+      <div className="fixed inset-0 w-full h-[100dvh] bg-[#030611] text-white flex items-center justify-center select-none overflow-hidden p-0 sm:p-4">
+        {/* Ambient poster backdrop blur filling any widescreen or letterbox borders */}
         <div
-          className="fixed inset-[-5%] bg-cover bg-center filter blur-2xl opacity-40 pointer-events-none"
+          className="fixed inset-0 bg-cover bg-center filter blur-3xl opacity-45 pointer-events-none scale-105"
           style={{ backgroundImage: `url('/mission-poster.jpg')` }}
         />
+        <div className="fixed inset-0 bg-black/60 pointer-events-none" />
 
-        {/* Parallax Container Stage */}
+        {/* 100% Responsive Full-Bleed Mobile Console Stage */}
         <div
           ref={tiltStageRef}
           onPointerMove={handlePointerMove}
           onPointerLeave={handlePointerLeave}
-          className="relative z-10 w-full max-w-[420px] aspect-[941/1672] rounded-3xl overflow-hidden shadow-2xl border border-blue-900/40 bg-cover bg-center flex flex-col justify-between"
+          className="relative z-10 mx-auto overflow-hidden sm:rounded-3xl sm:border sm:border-blue-400/40 sm:shadow-[0_0_60px_rgba(0,140,255,0.4)] flex flex-col justify-between shrink-0"
           style={{
+            width: '100%',
+            maxWidth: 'min(100vw, calc(100dvh * 941 / 1672))',
+            height: 'min(100dvh, calc(100vw * 1672 / 941))',
+            aspectRatio: '941 / 1672',
             backgroundImage: `url('/mission-poster.jpg')`,
+            backgroundPosition: 'center center',
+            backgroundSize: '100% 100%',
             perspective: '900px',
             transformStyle: 'preserve-3d',
             transition: 'transform 0.15s ease-out',
@@ -430,19 +437,19 @@ export default function PlayerMission() {
           <div className="absolute top-[15%] left-0 w-6 h-2.5 rounded-full bg-blue-300/30 shadow-[0_0_10px_#8fe3ff] pointer-events-none animate-[fly_36s_linear_infinite]" />
 
           {/* Radar Scanline */}
-          <div className="absolute top-[36.5%] left-[19%] w-[62%] h-[36%] rounded-3xl overflow-hidden pointer-events-none z-10">
-            <div className="w-full h-10 bg-gradient-to-b from-transparent via-blue-500/20 to-transparent animate-[scan_4s_linear_infinite]" />
+          <div className="absolute top-[36.5%] left-[18%] w-[64%] h-[35%] rounded-3xl overflow-hidden pointer-events-none z-10">
+            <div className="w-full h-10 bg-gradient-to-b from-transparent via-cyan-400/20 to-transparent animate-[scan_4s_linear_infinite]" />
           </div>
 
           {/* Audio toggle button top-right */}
-          <div className="absolute top-4 right-4 z-30">
+          <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-30">
             <button
               type="button"
               onClick={() => setSoundEnabled(!soundEnabled)}
-              className="p-2 rounded-full bg-black/60 backdrop-blur-xs text-blue-200 border border-blue-500/30 text-xs"
+              className="p-2 sm:p-2.5 rounded-full bg-black/60 backdrop-blur-md text-blue-200 border border-blue-500/30 text-xs shadow-lg active:scale-95 transition"
               title="Toggle Audio Feedback"
             >
-              {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4 text-neutral-400" />}
+              {soundEnabled ? <Volume2 className="w-4 h-4 text-cyan-300" /> : <VolumeX className="w-4 h-4 text-neutral-400" />}
             </button>
           </div>
 
@@ -461,13 +468,13 @@ export default function PlayerMission() {
           />
           <button
             type="button"
-            onClick={() => handleCrewmateTap('Good luck, crew! Find the impostor!', 25, 70)}
+            onClick={() => handleCrewmateTap('Good luck, crew! Defend the ship!', 25, 70)}
             className="absolute left-0 top-[71%] w-[28%] h-[15%] cursor-pointer z-20 outline-none"
             aria-label="Yellow Crewmate"
           />
           <button
             type="button"
-            onClick={() => handleCrewmateTap('Stay together. Check your sector!', 60, 79)}
+            onClick={() => handleCrewmateTap('Better together. Watch your vents.', 60, 80)}
             className="absolute right-0 top-[80%] w-[32%] h-[18%] cursor-pointer z-20 outline-none"
             aria-label="Blue Crewmate"
           />
@@ -475,81 +482,80 @@ export default function PlayerMission() {
           {/* Animated Speech Bubble */}
           {speechBubble && (
             <div
-              className="absolute z-30 bg-white text-neutral-900 px-3.5 py-1.5 rounded-2xl text-xs font-semibold font-sans shadow-lg border border-neutral-800 transition-all pointer-events-none transform -translate-x-1/2 -translate-y-full animate-bounce"
+              className="absolute z-30 bg-white text-neutral-900 px-3.5 py-1.5 rounded-2xl text-xs font-bold font-sans shadow-xl border border-neutral-800 transition-all pointer-events-none transform -translate-x-1/2 -translate-y-full animate-bounce"
               style={{ left: `${speechBubble.x}%`, top: `${speechBubble.y}%` }}
             >
               {speechBubble.text}
             </div>
           )}
 
-          {/* Central Login Terminal Form */}
-          <div className="absolute inset-0 flex flex-col justify-center items-center px-8 z-20">
-            <form onSubmit={handleLoginSubmit} className="w-full space-y-3 pt-32">
-              {/* Team Name Input */}
-              <div className="relative">
-                <label className="flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-gradient-to-b from-[#071342]/90 to-[#050b2b]/95 border border-[#2d6bff] shadow-[0_0_15px_rgba(45,107,255,0.35)] focus-within:border-blue-400 focus-within:shadow-[0_0_20px_rgba(45,107,255,0.6)] transition">
-                  <Users className="w-4 h-4 text-blue-300 shrink-0" />
-                  <input
-                    type="text"
-                    value={teamNameInput}
-                    onChange={e => setTeamNameInput(e.target.value)}
-                    onFocus={() => soundEnabled && GameAudio.click()}
-                    placeholder="Registered Squad Name"
-                    className="w-full bg-transparent text-sm text-blue-100 placeholder-blue-300/70 outline-none font-sans font-medium"
-                    autoComplete="off"
-                    autoCapitalize="words"
-                  />
-                </label>
-              </div>
+          {/* Live Squad Login Form with Proportional Console Boxes */}
+          <form onSubmit={handleLoginSubmit} className="contents" noValidate>
+            {/* Field 1: Squad Name */}
+            <div
+              className="absolute left-1/2 -translate-x-1/2 top-[41.5%] w-[60%] max-w-[270px] h-[5.6%] min-h-[42px] max-h-[48px] z-20 flex items-center rounded-full border border-[#2d6bff] bg-gradient-to-b from-[#071342] to-[#050b2b] px-3.5 shadow-[inset_0_0_10px_rgba(31,79,208,0.4),0_0_14px_rgba(31,91,255,0.35)] focus-within:border-[#79c0ff] focus-within:shadow-[inset_0_0_14px_rgba(61,123,255,0.6),0_0_20px_rgba(90,162,255,0.8)] transition-all"
+            >
+              <Users className="w-4 h-4 text-[#bfe0ff] shrink-0 mr-2" />
+              <input
+                type="text"
+                value={teamNameInput}
+                onChange={e => setTeamNameInput(e.target.value)}
+                onFocus={() => soundEnabled && GameAudio.click()}
+                placeholder="Registered Squad Name"
+                style={{ fontFamily: "'Patrick Hand', cursive" }}
+                className="w-full bg-transparent text-[17px] text-[#e6f1ff] placeholder-[#a9c8ffaa] outline-none"
+                autoComplete="off"
+                autoCapitalize="words"
+                spellCheck="false"
+              />
+            </div>
 
-              {/* Passcode / Phone Input */}
-              <div className="relative">
-                <label className="flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-gradient-to-b from-[#071342]/90 to-[#050b2b]/95 border border-[#2d6bff] shadow-[0_0_15px_rgba(45,107,255,0.35)] focus-within:border-blue-400 focus-within:shadow-[0_0_20px_rgba(45,107,255,0.6)] transition">
-                  <Lock className="w-4 h-4 text-blue-300 shrink-0" />
-                  <input
-                    type="password"
-                    value={passcodeInput}
-                    onChange={e => setPasscodeInput(e.target.value)}
-                    onFocus={() => soundEnabled && GameAudio.click()}
-                    placeholder="Captain Phone or Badge Code"
-                    className="w-full bg-transparent text-sm text-blue-100 placeholder-blue-300/70 outline-none font-sans font-medium"
-                    autoComplete="off"
-                  />
-                </label>
-              </div>
+            {/* Field 2: Badge / Phone / Passcode */}
+            <div
+              className="absolute left-1/2 -translate-x-1/2 top-[49.5%] w-[60%] max-w-[270px] h-[5.6%] min-h-[42px] max-h-[48px] z-20 flex items-center rounded-full border border-[#2d6bff] bg-gradient-to-b from-[#071342] to-[#050b2b] px-3.5 shadow-[inset_0_0_10px_rgba(31,79,208,0.4),0_0_14px_rgba(31,91,255,0.35)] focus-within:border-[#79c0ff] focus-within:shadow-[inset_0_0_14px_rgba(61,123,255,0.6),0_0_20px_rgba(90,162,255,0.8)] transition-all"
+            >
+              <Lock className="w-4 h-4 text-[#bfe0ff] shrink-0 mr-2" />
+              <input
+                type="password"
+                value={passcodeInput}
+                onChange={e => setPasscodeInput(e.target.value)}
+                onFocus={() => soundEnabled && GameAudio.click()}
+                placeholder="Captain Phone or Badge Code"
+                style={{ fontFamily: "'Patrick Hand', cursive" }}
+                className="w-full bg-transparent text-[17px] text-[#e6f1ff] placeholder-[#a9c8ffaa] outline-none"
+                autoComplete="off"
+                spellCheck="false"
+              />
+            </div>
 
-              {/* Error Message */}
-              {loginError && (
-                <div className="text-center text-xs font-semibold text-red-400 bg-red-950/80 border border-red-500/50 rounded-xl px-3 py-1.5 shadow-md">
-                  {loginError}
-                </div>
+            {/* Centered Console Error Alert */}
+            {loginError && (
+              <div
+                className="absolute left-1/2 -translate-x-1/2 top-[55.2%] w-[68%] max-w-[260px] z-30 text-center text-xs font-bold text-rose-100 bg-red-950/95 border border-red-500 rounded-xl px-2.5 py-1.5 shadow-[0_0_18px_rgba(239,68,68,0.7)] animate-bounce"
+                role="alert"
+                style={{ fontFamily: "'Patrick Hand', cursive" }}
+              >
+                {loginError}
+              </div>
+            )}
+
+            {/* Field 3: Board Skeld Button */}
+            <button
+              type="submit"
+              disabled={isScanning}
+              style={{ fontFamily: "'Exo 2', sans-serif" }}
+              className="absolute left-1/2 -translate-x-1/2 top-[60.0%] w-[56%] max-w-[250px] h-[6.8%] min-h-[46px] max-h-[52px] z-20 flex items-center justify-center gap-2 rounded-full border-2 border-[#8fc0ff] bg-gradient-to-b from-[#2a62ff] to-[#0b2fc4] text-white font-extrabold text-sm sm:text-base uppercase tracking-wider shadow-[0_0_25px_rgba(45,107,255,0.65)] active:scale-95 hover:brightness-110 transition-all cursor-pointer disabled:opacity-50"
+            >
+              {isScanning ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Verifying Squad...</span>
+                </>
+              ) : (
+                <span>Board Skeld</span>
               )}
-
-              {/* Enter Button */}
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={isScanning}
-                  className="w-full py-3 px-6 bg-gradient-to-r from-[#2a62ff] to-[#0b2fc4] hover:from-[#3a72ff] hover:to-[#1b3fd4] active:scale-95 text-white font-extrabold uppercase tracking-wider rounded-full shadow-[0_0_25px_rgba(45,107,255,0.6)] border border-blue-400/50 transition flex items-center justify-center gap-2 text-sm disabled:opacity-50"
-                >
-                  {isScanning ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Scanning Biometrics...</span>
-                    </>
-                  ) : (
-                    <span>Board Skeld Station</span>
-                  )}
-                </button>
-              </div>
-
-              <div className="text-center pt-2">
-                <span className="text-[10px] uppercase font-mono text-blue-300/60 tracking-widest">
-                  LIVE SUPABASE TELEMETRY ENLISTMENT
-                </span>
-              </div>
-            </form>
-          </div>
+            </button>
+          </form>
 
           {/* Hyperspace Warp Canvas Overlay */}
           <div

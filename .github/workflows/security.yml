@@ -1,0 +1,52 @@
+name: NEXUS Security & Secrets Audit
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  schedule:
+    # Run weekly security scan on Mondays at 00:00 UTC
+    - cron: '0 0 * * 1'
+
+jobs:
+  audit-and-scan:
+    name: Security Vulnerability & Secret Leak Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - name: Scan For Hardcoded Secret Leaks
+        run: |
+          echo "Scanning codebase for potential hardcoded secret exposures..."
+          # Check for high-entropy tokens or explicit service role keys accidentally checked in
+          FOUND_LEAKS=0
+          if grep -rnE "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.[a-zA-Z0-9_-]{50,}" frontend/src/ backend/src/ 2>/dev/null; then
+            echo "::error::Potential hardcoded JWT or service role key found in application code! Use environment variables (.env) instead."
+            FOUND_LEAKS=1
+          fi
+          if grep -rnE "sk_live_[0-9a-zA-Z]{24}" . 2>/dev/null; then
+            echo "::error::Live private key pattern detected in repository!"
+            FOUND_LEAKS=1
+          fi
+          if [ $FOUND_LEAKS -eq 1 ]; then
+            exit 1
+          fi
+          echo "✓ No hardcoded secrets detected in source trees."
+
+      - name: Dependency Vulnerability Audit
+        run: |
+          echo "Running audit on frontend dependencies..."
+          cd frontend && npm audit --audit-level=high || true
+          cd ..
+          echo "Running audit on backend dependencies..."
+          cd backend && npm audit --audit-level=high || true
+          cd ..
+          echo "✓ Security audit completed."

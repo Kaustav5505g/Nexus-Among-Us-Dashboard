@@ -1,16 +1,41 @@
-# Global fallback code owners
-* @Tejas-Narula
+# ==============================================================================
+# NEXUS Dashboard - Official Code Owners & Access Protection Policy
+# Repository: Tejas-Narula/Nexus-Among-Us-Dashboard
+# Authorized Maintainers: @Tejas-Narula and @synthreaper ONLY
+# ==============================================================================
 
-# Frontend sub-team
-/frontend/ @Tejas-Narula
+# Global fallback code owners - requires review on all changes
+* @Tejas-Narula @synthreaper
 
-# Backend sub-team
-/backend/ @Tejas-Narula
+# Critical Security, Workflows & Infrastructure
+/.github/ @Tejas-Narula @synthreaper
+/.github/workflows/ @Tejas-Narula @synthreaper
+/.github/CODEOWNERS @Tejas-Narula @synthreaper
+/supabase/ @Tejas-Narula @synthreaper
+/supabase/schema.sql @Tejas-Narula @synthreaper
+package.json @Tejas-Narula @synthreaper
+package-lock.json @Tejas-Narula @synthreaper
+vercel.json @Tejas-Narula @synthreaper
+docker-compose.yml @Tejas-Narula @synthreaper
+.env* @Tejas-Narula @synthreaper
+.gitignore @Tejas-Narula @synthreaper
 
-# Documentation & Rules
-/docs/ @Tejas-Narula
-README.md @Tejas-Narula
+# Frontend Core & User Interfaces
+/frontend/ @Tejas-Narula @synthreaper
+/frontend/package.json @Tejas-Narula @synthreaper
+/frontend/src/ @Tejas-Narula @synthreaper
+/frontend/src/App.tsx @Tejas-Narula @synthreaper
+/frontend/src/pages/ @Tejas-Narula @synthreaper
+/frontend/public/ @Tejas-Narula @synthreaper
 
-# DevOps & CI/CD
-/.github/ @Tejas-Narula
-docker-compose.yml @Tejas-Narula
+# Backend API & Real-time Game Engine
+/backend/ @Tejas-Narula @synthreaper
+/backend/package.json @Tejas-Narula @synthreaper
+/backend/src/ @Tejas-Narula @synthreaper
+
+# Documentation & Guidelines
+/docs/ @Tejas-Narula @synthreaper
+README.md @Tejas-Narula @synthreaper
+SECURITY.md @Tejas-Narula @synthreaper
+CONTRIBUTING.md @Tejas-Narula @synthreaper
+CHANGELOG.md @Tejas-Narula @synthreaper

@@ -1,0 +1,46 @@
+version: 2
+updates:
+  # Root dependencies
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    reviewers:
+      - "Tejas-Narula"
+      - "synthreaper"
+    assignees:
+      - "Tejas-Narula"
+      - "synthreaper"
+
+  # Frontend dependencies
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    reviewers:
+      - "Tejas-Narula"
+      - "synthreaper"
+    assignees:
+      - "Tejas-Narula"
+      - "synthreaper"
+
+  # Backend dependencies
+  - package-ecosystem: "npm"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    reviewers:
+      - "Tejas-Narula"
+      - "synthreaper"
+    assignees:
+      - "Tejas-Narula"
+      - "synthreaper"
+
+  # GitHub Actions workflows
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    reviewers:
+      - "Tejas-Narula"
+      - "synthreaper"

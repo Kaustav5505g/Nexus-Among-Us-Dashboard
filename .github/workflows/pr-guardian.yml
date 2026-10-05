@@ -1,0 +1,111 @@
+name: PR Guardian & Maintainer Verification
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  verify-maintainer-and-integrity:
+    name: Verify Author & Architectural Integrity
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Author & Maintainer Verification
+        id: check-author
+        run: |
+          AUTHOR="${{ github.event.pull_request.user.login }}"
+          echo "PR Author: $AUTHOR"
+          
+          # Authorized maintainers list
+          AUTHORIZED_MAINTAINERS=("Tejas-Narula" "synthreaper")
+          IS_AUTHORIZED=false
+
+          for maintainer in "${AUTHORIZED_MAINTAINERS[@]}"; do
+            if [ "$AUTHOR" == "$maintainer" ]; then
+              IS_AUTHORIZED=true
+              break
+            fi
+          done
+
+          echo "is_authorized=$IS_AUTHORIZED" >> $GITHUB_OUTPUT
+          if [ "$IS_AUTHORIZED" = true ]; then
+            echo "✓ PR Author is an authorized project maintainer ($AUTHOR)."
+          else
+            echo "⚠️ PR Author ($AUTHOR) is an external contributor or automated agent."
+          fi
+
+      - name: Check Critical Configuration File Changes
+        id: check-critical
+        run: |
+          # Identify changed files against base branch
+          BASE_REF="origin/${{ github.base_ref }}"
+          CHANGED_FILES=$(git diff --name-only "$BASE_REF" HEAD)
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          TOUCHED_CRITICAL=false
+          TOUCHED_MULTIPLE_SQL=false
+          TOUCHED_CHANGELOG=false
+
+          for file in $CHANGED_FILES; do
+            if [[ "$file" == "CHANGELOG.md" ]]; then
+              TOUCHED_CHANGELOG=true
+            fi
+            if [[ "$file" =~ ^\.github/ ]] || [[ "$file" =~ ^supabase/ ]] || [[ "$file" =~ ^\.env ]] || [[ "$file" == "package.json" ]] || [[ "$file" == "vercel.json" ]]; then
+              TOUCHED_CRITICAL=true
+            fi
+            # Guard against fragmentation: check if someone added unwanted sql files in supabase
+            if [[ "$file" =~ ^supabase/ ]] && [[ "$file" =~ \.sql$ ]] && [[ "$file" != "supabase/schema.sql" ]] && [[ ! "$file" =~ ^supabase/migrations/ ]]; then
+              TOUCHED_MULTIPLE_SQL=true
+            fi
+          done
+
+          echo "touched_critical=$TOUCHED_CRITICAL" >> $GITHUB_OUTPUT
+          echo "touched_multiple_sql=$TOUCHED_MULTIPLE_SQL" >> $GITHUB_OUTPUT
+          echo "touched_changelog=$TOUCHED_CHANGELOG" >> $GITHUB_OUTPUT
+
+      - name: Enforce Compulsory CHANGELOG.md Update Rule
+        if: steps.check-critical.outputs.touched_changelog == 'false'
+        run: |
+          echo "::warning::Compulsory Rule Notice: Every pull request must document its changes in CHANGELOG.md! Please add an entry under [Unreleased]."
+
+      - name: Enforce Single Unified Supabase Schema Rule
+        if: steps.check-critical.outputs.touched_multiple_sql == 'true'
+        run: |
+          echo "::error::Architectural Violation: Only 'supabase/schema.sql' is allowed for database definitions. Do not commit loose or redundant .sql files into the supabase/ root directory."
+          exit 1
+
+      - name: Maintainer Review Enforcement Warning
+        if: steps.check-author.outputs.is_authorized == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const author = context.payload.pull_request.user.login;
+            const body = `### 🛡️ NEXUS Repository Protection Notice
+            
+            Hello @${author},
+            
+            This repository has strict architectural controls. Changes to configuration, security, database schemas, and workflows require explicit review and approval from the designated maintainers:
+            - **@Tejas-Narula**
+            - **@synthreaper**
+            
+            **Rules for Automated Agents & Contributors:**
+            1. All database migrations must remain consolidated in \`supabase/schema.sql\` (no fragmented SQL files).
+            2. Do not overwrite custom branding or add unauthorized directories.
+            3. Automated merges are disabled. Please await formal approval from @Tejas-Narula or @synthreaper.`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });

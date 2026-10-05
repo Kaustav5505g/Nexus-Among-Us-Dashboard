@@ -1,34 +1,64 @@
-name: NEXUS Dashboard CI
+name: NEXUS CI & Integrity Pipeline
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, master, develop ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, master, develop ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build-and-lint:
+  validate-and-build:
+    name: Typecheck, Build & Schema Validation
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Use Node.js 20.x
-      uses: actions/setup-node@v4
-      with:
-        node-version: 20.x
-        cache: 'npm'
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'npm'
 
-    - name: Install Monorepo Dependencies
-      run: |
-        npm install
-        cd backend && npm install
-        cd ../frontend && npm install
+      - name: Verify Single Unified Supabase Schema File
+        run: |
+          if [ ! -s supabase/schema.sql ]; then
+            echo "::error::Missing canonical database schema: supabase/schema.sql does not exist or is empty!"
+            exit 1
+          fi
+          # Ensure no duplicate loose SQL files clutter supabase root
+          LOOSE_SQL=$(find supabase -maxdepth 1 -name "*.sql" ! -name "schema.sql" | wc -l)
+          if [ "$LOOSE_SQL" -gt 0 ]; then
+            echo "::error::Found loose duplicate SQL files in supabase/ root. Consolidate all database definitions into supabase/schema.sql."
+            find supabase -maxdepth 1 -name "*.sql" ! -name "schema.sql"
+            exit 1
+          fi
+          echo "✓ Database schema integrity verified (single unified supabase/schema.sql)."
 
-    - name: Build Backend
-      run: |
-        cd backend && npm run build
+      - name: Install Dependencies (Root & Workspaces)
+        run: |
+          npm install
+          npm --prefix backend install
+          npm --prefix frontend install
 
-    - name: Build Frontend
-      run: |
-        cd frontend && npm run build
+      - name: Verify Backend Build (TypeScript)
+        run: |
+          npm --prefix backend run build
+
+      - name: Verify Frontend Build (Vite & TypeScript)
+        run: |
+          npm --prefix frontend run build
+
+      - name: Security Check - Guard Forbidden Paths
+        run: |
+          # Ensure private / scratch folders are never tracked
+          if [ -d "dumb" ] || git ls-files | grep -E "^dumb/"; then
+            echo "::error::Private research directory 'dumb/' was detected in tracked git files!"
+            exit 1
+          fi
+          echo "✓ Workspace hygiene verified: no private directories tracked."

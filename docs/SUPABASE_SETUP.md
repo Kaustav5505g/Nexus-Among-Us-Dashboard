@@ -1,6 +1,6 @@
 # 🗄️ Setting Up Supabase for NEXUS Dashboard
 
-Follow this guide to initialize the PostgreSQL database and real-time streaming publication on **Supabase**.
+Follow this guide to initialize the PostgreSQL database and real-time streaming publication on **Supabase** using our **single unified schema script**.
 
 ---
 
@@ -14,29 +14,23 @@ Follow this guide to initialize the PostgreSQL database and real-time streaming 
 
 ---
 
-## 2. Execute Database Schema & Realtime Setup
+## 2. Execute Single Unified Database Script
+
+We have consolidated the entire database schema, security policies, real-time publication, and initial seeds into a **single canonical file**:
 
 1. In your Supabase Project Dashboard, click on the **SQL Editor** icon in the left navigation sidebar.
 2. Click **New query**.
 3. Open [`supabase/schema.sql`](../supabase/schema.sql) from this repository, copy its entire contents, and paste it into the SQL Editor.
 4. Click **Run** (or press `Ctrl+Enter` / `Cmd+Enter`).
-   - This creates tables: `teams`, `station_tasks`, `mystery_clues`, `sabotage_events`, `emergency_meetings`, and `activity_logs`.
-   - It sets up Row Level Security (RLS) policies for public reading and secure insertions.
-   - It attaches tables to `supabase_realtime` publication.
+   - Automatically provisions all tables: `teams`, `station_tasks`, `mystery_clues`, `sabotage_events`, `meeting_sessions`, `admin_users`, `audit_logs`, `player_progress`, and `activity_logs`.
+   - Automatically enables UUID extension and performance indexes.
+   - Automatically sets up Row Level Security (RLS) policies.
+   - Automatically attaches tables to `supabase_realtime` publication.
+   - Automatically seeds all station tasks, room definitions, and facilitator profiles.
 
 ---
 
-## 3. Seed Initial Game & Mystery Data
-
-1. In the **SQL Editor**, open another **New query**.
-2. Open [`supabase/seed.sql`](../supabase/seed.sql) from this repository, copy and paste its contents.
-3. Click **Run**.
-   - Populates initial station tasks (Electrical, MedBay, Reactor, Admin, Navigation).
-   - Populates initial Tech Mystery dossiers and ciphers (Binary, ROT-13, Hex dump, Base64).
-
----
-
-## 4. Retrieve API Credentials
+## 3. Retrieve API Credentials
 
 1. Go to **Project Settings** (gear icon) -> **API**.
 2. Under **Project URL**, copy the URL (e.g. `https://your-ref.supabase.co`).
@@ -46,7 +40,7 @@ Follow this guide to initialize the PostgreSQL database and real-time streaming 
 
 ---
 
-## 5. Configure Local & Production Environment
+## 4. Configure Local & Production Environment
 
 Add these credentials to your environment files:
 

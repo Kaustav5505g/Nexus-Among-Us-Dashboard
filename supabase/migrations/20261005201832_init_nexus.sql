@@ -1,15 +1,14 @@
 -- ==============================================================================
 -- NEXUS Among Us: Coded Chaos & Tech Mystery
 -- COMPLETE ALL-IN-ONE SUPABASE DATABASE SETUP & MIGRATION SCRIPT
--- Paste this entire script into your Supabase SQL Editor and click "RUN"
--- Handles both fresh setups AND existing tables with older schemas automatically
+-- Paste this entire script into your Supabase SQL Editor or push via Supabase CLI
 -- ==============================================================================
 
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ==============================================================================
--- 1. TABLE DEFINITIONS (DDL)
+-- 1. TABLE DEFINITIONS & RETROACTIVE COLUMN MIGRATIONS (DDL)
 -- ==============================================================================
 
 -- 1.1 TEAMS TABLE (Dual-event registrations: Coded Chaos + Tech Mystery)
@@ -34,6 +33,13 @@ CREATE TABLE IF NOT EXISTS public.teams (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Ensure all teams columns exist on pre-existing tables
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS assigned_room TEXT DEFAULT 'Cafeteria';
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS is_impostor BOOLEAN DEFAULT false;
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS impostor_player_name TEXT;
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS badge_code TEXT;
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
 CREATE INDEX IF NOT EXISTS idx_teams_score ON public.teams (score DESC);
 CREATE INDEX IF NOT EXISTS idx_teams_room ON public.teams (assigned_room);
 
@@ -54,6 +60,12 @@ CREATE TABLE IF NOT EXISTS public.station_tasks (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Ensure all station_tasks columns exist on pre-existing tables
+ALTER TABLE public.station_tasks ADD COLUMN IF NOT EXISTS snippet TEXT;
+ALTER TABLE public.station_tasks ADD COLUMN IF NOT EXISTS clue_hint TEXT;
+ALTER TABLE public.station_tasks ADD COLUMN IF NOT EXISTS flag_answer TEXT;
+ALTER TABLE public.station_tasks ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
 CREATE INDEX IF NOT EXISTS idx_tasks_room ON public.station_tasks (room);
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON public.station_tasks (status);
 
@@ -73,6 +85,8 @@ CREATE TABLE IF NOT EXISTS public.mystery_clues (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE public.mystery_clues ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
 -- 1.4 SABOTAGE ALARM EVENTS TABLE
 CREATE TABLE IF NOT EXISTS public.sabotage_events (
@@ -127,25 +141,7 @@ CREATE TABLE IF NOT EXISTS public.admin_users (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_admin_facilitator_id ON public.admin_users (facilitator_id);
-
--- 1.8 EVENT MASTER CONTROLS TABLE
-CREATE TABLE IF NOT EXISTS public.event_controls (
-    id TEXT PRIMARY KEY DEFAULT 'primary_match',
-    status TEXT NOT NULL DEFAULT 'standby' CHECK (status IN ('standby', 'running', 'paused', 'ended')),
-    impostor_powers_active BOOLEAN NOT NULL DEFAULT true,
-    elapsed_seconds INT NOT NULL DEFAULT 0,
-    current_round INT NOT NULL DEFAULT 1,
-    active_sabotage TEXT,
-    emergency_active BOOLEAN NOT NULL DEFAULT false,
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- ==============================================================================
--- 1.9 RETROACTIVE MIGRATIONS (Fixes missing columns on pre-existing tables)
--- ==============================================================================
-
--- admin_users migrations
+-- Ensure all admin_users columns exist on pre-existing tables BEFORE index creation
 ALTER TABLE public.admin_users ADD COLUMN IF NOT EXISTS facilitator_id TEXT;
 ALTER TABLE public.admin_users ADD COLUMN IF NOT EXISTS password TEXT NOT NULL DEFAULT 'admin2026';
 ALTER TABLE public.admin_users ADD COLUMN IF NOT EXISTS poc_room TEXT;
@@ -164,7 +160,7 @@ BEGIN
     END IF;
 END $$;
 
--- Populate facilitator_id for any existing records where it might be null
+-- Populate facilitator_id for existing records where it might be null
 UPDATE public.admin_users
 SET facilitator_id = CASE
     WHEN role = 'super_admin' THEN 'NX-SUPER-01'
@@ -174,23 +170,21 @@ SET facilitator_id = CASE
 END
 WHERE facilitator_id IS NULL;
 
--- station_tasks migrations
-ALTER TABLE public.station_tasks ADD COLUMN IF NOT EXISTS snippet TEXT;
-ALTER TABLE public.station_tasks ADD COLUMN IF NOT EXISTS clue_hint TEXT;
-ALTER TABLE public.station_tasks ADD COLUMN IF NOT EXISTS flag_answer TEXT;
-ALTER TABLE public.station_tasks ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+-- Now safe to create index on facilitator_id
+CREATE INDEX IF NOT EXISTS idx_admin_facilitator_id ON public.admin_users (facilitator_id);
 
--- mystery_clues migrations
-ALTER TABLE public.mystery_clues ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+-- 1.8 EVENT MASTER CONTROLS TABLE
+CREATE TABLE IF NOT EXISTS public.event_controls (
+    id TEXT PRIMARY KEY DEFAULT 'primary_match',
+    status TEXT NOT NULL DEFAULT 'standby' CHECK (status IN ('standby', 'running', 'paused', 'ended')),
+    impostor_powers_active BOOLEAN NOT NULL DEFAULT true,
+    elapsed_seconds INT NOT NULL DEFAULT 0,
+    current_round INT NOT NULL DEFAULT 1,
+    active_sabotage TEXT,
+    emergency_active BOOLEAN NOT NULL DEFAULT false,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 
--- teams migrations
-ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS assigned_room TEXT DEFAULT 'Cafeteria';
-ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS is_impostor BOOLEAN DEFAULT false;
-ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS impostor_player_name TEXT;
-ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS badge_code TEXT;
-ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
-
--- event_controls migrations
 ALTER TABLE public.event_controls ADD COLUMN IF NOT EXISTS impostor_powers_active BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE public.event_controls ADD COLUMN IF NOT EXISTS active_sabotage TEXT;
 ALTER TABLE public.event_controls ADD COLUMN IF NOT EXISTS emergency_active BOOLEAN NOT NULL DEFAULT false;

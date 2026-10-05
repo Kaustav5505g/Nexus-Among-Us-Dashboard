@@ -71,6 +71,19 @@ body::before {
   border-radius: 28px;
   border: 1px solid rgba(45,107,255,0.4);
 }
+@media (max-width: 640px) {
+  #portal-container {
+    padding: 0;
+  }
+  .stage {
+    width: 100vw;
+    height: 100dvh;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    aspect-ratio: auto;
+  }
+}
 .tilt {
   position: absolute;
   inset: 0;
@@ -141,13 +154,13 @@ canvas#stars, canvas#wc {
   position: absolute;
   left: 20cqw;
   width: 60cqw;
-  height: 5.5cqh;
+  height: 5.8cqh;
   display: flex;
   align-items: center;
   gap: 2.5cqw;
   padding: 0 3cqw 0 4.3cqw;
   border-radius: 999px;
-  background: linear-gradient(#071342ee,#050b2bee);
+  background: #060e32;
   border: .5cqw solid var(--neon);
   box-shadow: inset 0 0 3cqw #1f4fd066, 0 0 3cqw #1f5bff66;
   transition: box-shadow .2s, border-color .2s;
@@ -172,7 +185,7 @@ canvas#stars, canvas#wc {
   color: #e6f1ff;
   font: inherit;
   font-family: 'Patrick Hand', cursive;
-  font-size: 4.2cqw;
+  font-size: 16px;
 }
 .field input::placeholder { color: #a9c8ffaa; }
 #ft { top: 41.5cqh; }
