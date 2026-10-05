@@ -1,0 +1,34 @@
+name: NEXUS Dashboard CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-and-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        cache: 'npm'
+
+    - name: Install Monorepo Dependencies
+      run: |
+        npm install
+        cd backend && npm install
+        cd ../frontend && npm install
+
+    - name: Build Backend
+      run: |
+        cd backend && npm run build
+
+    - name: Build Frontend
+      run: |
+        cd frontend && npm run build

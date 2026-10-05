@@ -1,0 +1,32 @@
+{
+  "name": "nexus-among-us-dashboard",
+  "version": "1.0.0",
+  "description": "Enterprise-grade real-time dashboard for NEXUS Among Us: Coded Chaos & Tech Mystery events",
+  "main": "backend/dist/index.js",
+  "scripts": {
+    "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"magenta,cyan\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build": "npm --prefix backend run build && npm --prefix frontend run build",
+    "start": "npm --prefix backend start",
+    "install:all": "npm install && npm --prefix backend install && npm --prefix frontend install",
+    "lint": "npm --prefix frontend run lint"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "keywords": [
+    "nexus",
+    "among-us",
+    "coded-chaos",
+    "tech-mystery",
+    "dashboard",
+    "realtime",
+    "socketio",
+    "react",
+    "vite",
+    "tailwind"
+  ],
+  "author": "NEXUS Club",
+  "license": "MIT"
+}

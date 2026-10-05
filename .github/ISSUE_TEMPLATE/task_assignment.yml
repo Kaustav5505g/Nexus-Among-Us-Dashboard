@@ -1,0 +1,48 @@
+name: Task Assignment
+description: Assign a club project task or module to a team member
+title: "[TASK]: "
+labels: ["task", "help wanted"]
+body:
+  - type: markdown
+    attributes:
+      value: Use this template to break down club project features and assign them to club developers.
+  - type: dropdown
+    id: module
+    attributes:
+      label: Project Module
+      description: Which area does this task belong to?
+      options:
+        - Frontend - UI / Components
+        - Frontend - Realtime / WebSockets
+        - Backend - REST APIs
+        - Backend - Game State / Sabotage Engine
+        - Tech Mystery - Cryptography / Riddles
+        - DevOps / Infrastructure
+    validations:
+      required: true
+  - type: input
+    id: assignee
+    attributes:
+      label: Assignee GitHub Username(s)
+      description: Who is responsible for delivering this task?
+      placeholder: "@member1, @member2"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Task Description & Acceptance Criteria
+      description: What specific deliverable is required?
+      placeholder: |
+        - [ ] Build component X
+        - [ ] Verify unit test / API response
+        - [ ] Ensure mobile responsiveness
+    validations:
+      required: true
+  - type: input
+    id: deadline
+    attributes:
+      label: Target Completion Date
+      placeholder: "e.g., 2026-10-15"
+    validations:
+      required: false

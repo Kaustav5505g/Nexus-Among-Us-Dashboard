@@ -1,0 +1,16 @@
+# Global fallback code owners
+* @Tejas-Narula
+
+# Frontend sub-team
+/frontend/ @Tejas-Narula
+
+# Backend sub-team
+/backend/ @Tejas-Narula
+
+# Documentation & Rules
+/docs/ @Tejas-Narula
+README.md @Tejas-Narula
+
+# DevOps & CI/CD
+/.github/ @Tejas-Narula
+docker-compose.yml @Tejas-Narula
