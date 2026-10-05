@@ -2,8 +2,13 @@
 
 <div align="center">
 
+<img src="./assets/nexus-logo.jpeg" alt="NEXUS Logo" width="160" style="border-radius: 16px; margin-bottom: 12px; box-shadow: 0 4px 20px rgba(0, 240, 255, 0.2);" />
+
+<br/>
+
 ![NEXUS Banner](https://img.shields.io/badge/NEXUS-Club%20Event-red?style=for-the-badge&logo=target)
-![Node.js](https://img.shields.io/badge/Node.js-v20%2B-green?style=for-the-badge&logo=node.js)
+![Vercel](https://img.shields.io/badge/Vercel-Hosted-black?style=for-the-badge&logo=vercel)
+![Supabase](https://img.shields.io/badge/Supabase-Database%20%26%20Realtime-3ECF8E?style=for-the-badge&logo=supabase)
 ![React](https://img.shields.io/badge/React-18-cyan?style=for-the-badge&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue?style=for-the-badge&logo=typescript)
 ![Socket.io](https://img.shields.io/badge/Socket.IO-Realtime-black?style=for-the-badge&logo=socketdotio)
@@ -14,7 +19,7 @@
 ### 🚨 **NEXUS IS BRINGING THE CHAOS!** 🚨
 **Ready to put your brains, instincts & detective skills to the test? 👀🔥**
 
-[🕹️ Coded Chaos Registration](https://tinyurl.com/bdfp2emu) • [🕵🏻‍♀️ Tech Mystery Registration](https://tinyurl.com/45sbus6m) • [Contributing Guide](./CONTRIBUTING.md) • [Git Workflow](./docs/GIT_WORKFLOW.md)
+[🕹️ Coded Chaos Registration](https://tinyurl.com/bdfp2emu) • [🕵🏻‍♀️ Tech Mystery Registration](https://tinyurl.com/45sbus6m) • [Vercel Guide](./docs/DEPLOYMENT_VERCEL.md) • [Supabase Guide](./docs/SUPABASE_SETUP.md) • [Contributing](./CONTRIBUTING.md)
 
 </div>
 
@@ -56,13 +61,16 @@ Nexus-Among-Us-Dashboard/
 ├── .github/                      # GitHub Collaboration & Automation
 │   ├── workflows/ci.yml          # GitHub Actions CI build & verification
 │   ├── ISSUE_TEMPLATE/           # Structured bug, feature, and task templates
-│   │   ├── bug_report.yml
-│   │   ├── feature_request.yml
-│   │   └── task_assignment.yml   # Template for assigning modules to club members
 │   ├── PULL_REQUEST_TEMPLATE.md  # Standardized PR checklist
 │   └── CODEOWNERS                # Sub-team code ownership routing
+├── assets/                       # Official NEXUS Brand Logos & Visual Assets
+│   └── nexus-logo.jpeg           # High-resolution club insignia
+├── supabase/                     # Supabase Cloud Database & Realtime Engine
+│   ├── schema.sql                # Complete PostgreSQL tables, indexes & RLS policies
+│   └── seed.sql                  # Initial Skeld station tasks & Tech Mystery dossiers
 ├── backend/                      # Node.js + Express + TypeScript + Socket.IO
 │   ├── src/
+│   │   ├── config/supabase.ts    # Supabase service-role client
 │   │   ├── controllers/          # Route business logic (teams, game, mystery, admin)
 │   │   ├── models/               # TypeScript interfaces & initial match mock data
 │   │   ├── routes/               # Express REST route endpoints
@@ -72,23 +80,29 @@ Nexus-Among-Us-Dashboard/
 │   ├── package.json
 │   ├── tsconfig.json
 │   └── Dockerfile
-├── frontend/                     # React 18 + Vite + TypeScript + Tailwind CSS
+├── frontend/                     # React 18 + Vite + TypeScript + Tailwind CSS (Vercel-Ready)
+│   ├── public/logo.jpeg          # App favicon and branding
 │   ├── src/
+│   │   ├── lib/supabase.ts       # Supabase client with realtime hooks
 │   │   ├── components/           # UI components, modals, HUD widgets
 │   │   ├── pages/                # Views (Arena, Mystery, Hub, Leaderboard)
 │   │   ├── types/                # Shared frontend TypeScript interfaces
 │   │   ├── App.tsx               # Main application routing & event hub
 │   │   └── main.tsx              # React mounting root
+│   ├── vercel.json               # Vercel SPA rewrites & security headers
 │   ├── package.json
 │   ├── vite.config.ts
 │   └── tailwind.config.js
 ├── docs/                         # Team Documentation & Playbooks
+│   ├── DEPLOYMENT_VERCEL.md      # Vercel deployment walkthrough
+│   ├── SUPABASE_SETUP.md         # Supabase PostgreSQL & Realtime setup guide
 │   ├── ARCHITECTURE.md           # System design & WebSocket event protocol
 │   ├── API_SPECS.md              # REST & WebSocket endpoint specifications
 │   ├── GAME_RULES.md             # Official competition rules & scoring formula
 │   ├── GIT_WORKFLOW.md           # Multi-user git branching & contribution guide
 │   ├── TASK_BOARD.md             # Module tracking & developer task distribution
 │   └── EVENT_INFO.md             # NEXUS promotional kit & links
+├── vercel.json                   # Root Vercel deployment configuration
 ├── docker-compose.yml            # Multi-container Docker orchestration
 ├── CONTRIBUTING.md               # Club contributor guidelines
 ├── CODE_OF_CONDUCT.md           # Contributor Covenant v2.1
@@ -158,6 +172,26 @@ npm run dev:backend
 # Run frontend only
 npm run dev:frontend
 ```
+
+---
+
+## ☁️ Cloud Hosting & Database Setup
+
+### 1. 🗄️ Supabase PostgreSQL & Realtime
+1. Create a project at [supabase.com](https://supabase.com).
+2. In the **SQL Editor**, run [`supabase/schema.sql`](./supabase/schema.sql) to create tables, RLS policies, and realtime publication.
+3. Run [`supabase/seed.sql`](./supabase/seed.sql) to populate initial station tasks and mystery dossiers.
+4. Copy `Project URL` and `anon key` to your `.env`.
+> 📖 Detailed guide: [docs/SUPABASE_SETUP.md](./docs/SUPABASE_SETUP.md)
+
+### 2. ▲ Vercel Hosting (One-Click)
+1. Import this repository into [Vercel](https://vercel.com/new).
+2. Set Framework Preset to **Vite** (Root `vercel.json` and `frontend/vercel.json` handle rewrites automatically).
+3. Add Environment Variables:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+4. Click **Deploy**!
+> 📖 Detailed guide: [docs/DEPLOYMENT_VERCEL.md](./docs/DEPLOYMENT_VERCEL.md)
 
 ---
 

@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#050816">
+<title>Among Us - Mobile Player Mission Deck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@800&family=Patrick+Hand&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --img: url('./mission-poster.jpg');
+  --bg: #050816;
+  --neon: #2d6bff;
+  --ice: #bfe0ff;
+  --hot: #ff5b6e;
+  --cyan: #00F0FF;
+  --red: #FF2A3A;
+  box-sizing: border-box;
+}
+*, *::before, *::after { box-sizing: inherit; }
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #fff;
+  overflow: hidden;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Background Ambient Blur */
+body::before {
+  content: "";
+  position: fixed;
+  inset: -5%;
+  background: var(--img) center/cover;
+  filter: blur(28px) brightness(.4);
+  z-index: 0;
+}
+
+/* ==========================================================================
+   VIEW A: LOGIN PORTAL (CANVAS STAGE)
+   ========================================================================== */
+#portal-container {
+  position: relative;
+  z-index: 10;
+  width: 100vw;
+  height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+}
+.stage {
+  position: relative;
+  width: min(100vw, calc(100dvh * .5628));
+  aspect-ratio: 941/1672;
+  max-height: 100%;
+  container-type: size;
+  overflow: hidden;
+  background: var(--img) center/100% 100%;
+  perspective: 900px;
+  box-shadow: 0 0 50px rgba(0,0,0,0.9);
+  border-radius: 28px;
+  border: 1px solid rgba(45,107,255,0.4);
+}
+.tilt {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transition: transform .15s ease-out;
+}
+.abs { position: absolute; }
+canvas#stars, canvas#wc {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.beacon {
+  width: 22cqw;
+  height: 22cqw;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ff2a3acc, #ff2a3a00 65%);
+  mix-blend-mode: screen;
+  transform: translate(-50%,-50%);
+  animation: beacon 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes beacon { 0%,100%{opacity:.05} 50%{opacity:.9} }
+.scan {
+  left: 19cqw;
+  top: 36.5cqh;
+  width: 62cqw;
+  height: 36cqh;
+  border-radius: 7cqw;
+  overflow: hidden;
+  pointer-events: none;
+}
+.scan i {
+  position: absolute;
+  left: 0; right: 0; height: 14%;
+  background: linear-gradient(transparent, #4d8dff40, transparent);
+  animation: scan 4s linear infinite;
+}
+@keyframes scan { from { top: -16%; } to { top: 104%; } }
+
+.ufo {
+  width: 7cqw;
+  height: 3cqw;
+  pointer-events: none;
+  animation: fly linear infinite;
+}
+.ufo::before {
+  content: "";
+  position: absolute;
+  left: 25%; right: 25%; top: -45%; height: 70%;
+  border-radius: 50% 50% 0 0;
+  background: #8fe3ff88;
+}
+.ufo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: linear-gradient(#9aa8d6,#3b4380);
+  box-shadow: 0 0 14px #8fe3ff, 0 1.5cqw 3cqw #8fe3ff55;
+}
+@keyframes fly { from { transform: translateX(-12cqw); } to { transform: translateX(112cqw); } }
+
+/* Form Fields */
+.field {
+  position: absolute;
+  left: 20cqw;
+  width: 60cqw;
+  height: 5.5cqh;
+  display: flex;
+  align-items: center;
+  gap: 2.5cqw;
+  padding: 0 3cqw 0 4.3cqw;
+  border-radius: 999px;
+  background: linear-gradient(#071342ee,#050b2bee);
+  border: .5cqw solid var(--neon);
+  box-shadow: inset 0 0 3cqw #1f4fd066, 0 0 3cqw #1f5bff66;
+  transition: box-shadow .2s, border-color .2s;
+  z-index: 20;
+}
+.field:focus-within {
+  border-color: #79c0ff;
+  box-shadow: inset 0 0 3cqw #3d7bff99, 0 0 5cqw #5aa2ffcc;
+}
+.field.bad {
+  border-color: var(--hot);
+  animation: shake .35s;
+}
+@keyframes shake { 25% { transform: translateX(-1.4cqw); } 75% { transform: translateX(1.4cqw); } }
+.field svg { width: 5.5cqw; height: 5.5cqw; flex: none; fill: var(--ice); }
+.field input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: 0;
+  outline: 0;
+  color: #e6f1ff;
+  font: inherit;
+  font-family: 'Patrick Hand', cursive;
+  font-size: 4.2cqw;
+}
+.field input::placeholder { color: #a9c8ffaa; }
+#ft { top: 41.5cqh; }
+#fp { top: 49.5cqh; }
+.err {
+  left: 15cqw;
+  width: 70cqw;
+  top: 55.5cqh;
+  text-align: center;
+  color: var(--hot);
+  font-family: 'Patrick Hand', cursive;
+  font-size: 3.8cqw;
+  text-shadow: 0 0 2cqw #ff2a3a;
+  z-index: 20;
+}
+.enter {
+  left: 22cqw;
+  top: 60cqh;
+  width: 56cqw;
+  height: 7.2cqh;
+  background: linear-gradient(#2a62ff, #0b2fc4);
+  border: .4cqw solid #8fc0ff;
+  border-radius: 999px;
+  cursor: pointer;
+  padding: 0;
+  font-family: 'Exo 2', sans-serif;
+  font-weight: 800;
+  font-size: 4.8cqw;
+  color: #fff;
+  transition: transform .08s, filter .2s;
+  z-index: 20;
+  box-shadow: 0 0 25px rgba(45,107,255,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: uppercase;
+  letter-spacing: .5cqw;
+}
+.enter:active { transform: scale(.96); }
+.hot {
+  position: absolute;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+  z-index: 15;
+}
+.bubble {
+  position: absolute;
+  max-width: 48cqw;
+  padding: 2cqw 3cqw;
+  border-radius: 3cqw;
+  background: #fff;
+  color: #0a1236;
+  font-family: 'Patrick Hand', cursive;
+  font-size: 4.2cqw;
+  opacity: 0;
+  transform: translateY(1cqw) scale(.9);
+  transition: .2s;
+  pointer-events: none;
+  border: .5cqw solid #0a1236;
+  z-index: 30;
+}
+.bubble.on { opacity: 1; transform: none; }
+
+/* Hyperspace Warp */
+#warp {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .3s;
+  background: #02030c;
+  z-index: 50;
+}
+#warp.on { opacity: 1; pointer-events: all; }
+#welcome {
+  left: 50%;
+  top: 45cqh;
+  transform: translateX(-50%) scale(.8);
+  width: 80cqw;
+  text-align: center;
+  opacity: 0;
+  transition: .5s;
+  pointer-events: none;
+  color: #fff;
+  font-family: 'Exo 2', sans-serif;
+  font-weight: 800;
+  text-shadow: 0 0 3cqw #4d8dff;
+  z-index: 60;
+}
+#welcome.on { opacity: 1; transform: translateX(-50%); pointer-events: all; }
+#welcome h2 { margin: 0; font-size: 7cqw; }
+#welcome p { font-family: 'Patrick Hand', cursive; font-size: 4.6cqw; color: var(--ice); margin: 1.5cqh 0 0; }
+
+/* ==========================================================================
+   VIEW B: MOBILE-FIRST PLAYER MISSION DECK (AUTHENTICATED)
+   ========================================================================== */
+#deck-container {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  width: 100vw;
+  height: 100dvh;
+  flex-direction: column;
+  background: #050b1a;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+#deck-container.is-impostor {
+  background: #0f0407;
+}
+
+/* Header HUD */
+.hud-header {
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(45,107,255,0.25);
+  background: rgba(5,11,26,0.85);
+  backdrop-filter: blur(12px);
+  flex-shrink: 0;
+}
+.is-impostor .hud-header {
+  border-bottom-color: rgba(255,42,58,0.3);
+  background: rgba(15,4,7,0.85);
+}
+.role-badge {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.role-badge.crew {
+  background: var(--cyan);
+  color: #000;
+  box-shadow: 0 0 10px rgba(0,240,255,0.7);
+}
+.role-badge.imp {
+  background: var(--red);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(255,42,58,0.7);
+}
+
+/* Alarm Banners */
+.alarm-strip {
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  animation: pulse 1s infinite alternate;
+  flex-shrink: 0;
+}
+.alarm-sabotage { background: #dc2626; color: #fff; }
+.alarm-emergency { background: #f59e0b; color: #000; }
+.alarm-frozen { background: #1c1917; color: #f87171; border-bottom: 1px solid #7f1d1d; }
+@keyframes pulse { from { opacity: 0.9; } to { opacity: 1; filter: brightness(1.2); } }
+
+/* Main Content Area */
+.deck-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Cards */
+.cyber-card {
+  background: rgba(10, 18, 45, 0.6);
+  border: 1px solid rgba(45,107,255,0.25);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+.is-impostor .cyber-card {
+  background: rgba(28, 8, 14, 0.6);
+  border-color: rgba(255,42,58,0.3);
+}
+
+/* Bottom Navigation Bar */
+.bottom-nav {
+  height: 64px;
+  border-top: 1px solid rgba(45,107,255,0.25);
+  background: rgba(5,11,26,0.95);
+  backdrop-filter: blur(16px);
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  flex-shrink: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.is-impostor .bottom-nav {
+  border-top-color: rgba(255,42,58,0.3);
+  background: rgba(15,4,7,0.95);
+}
+.nav-btn {
+  background: none;
+  border: 0;
+  color: #64748b;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  gap: 3px;
+  cursor: pointer;
+  transition: color .15s;
+}
+.nav-btn.active {
+  color: var(--cyan);
+  font-weight: 800;
+}
+.is-impostor .nav-btn.active {
+  color: var(--red);
+}
+.nav-btn svg { width: 20px; height: 20px; fill: currentColor; }
+
+/* Modals */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  backdrop-filter: blur(6px);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.modal-card {
+  width: 100%;
+  max-width: 360px;
+  background: #0b132b;
+  border: 1px solid var(--neon);
+  border-radius: 24px;
+  padding: 20px;
+  color: #fff;
+  box-shadow: 0 0 30px rgba(45,107,255,0.4);
+}
+.is-impostor .modal-card {
+  background: #1a080f;
+  border-color: var(--red);
+  box-shadow: 0 0 30px rgba(255,42,58,0.4);
+}
+.btn-primary {
+  width: 100%;
+  padding: 12px;
+  border-radius: 14px;
+  border: 0;
+  background: linear-gradient(135deg, var(--neon), #0b2fc4);
+  color: #fff;
+  font-weight: 800;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  cursor: pointer;
+  box-shadow: 0 0 15px rgba(45,107,255,0.4);
+}
+.is-impostor .btn-primary {
+  background: linear-gradient(135deg, var(--red), #991b1b);
+  box-shadow: 0 0 15px rgba(255,42,58,0.4);
+}
+</style>
+</head>
+<body>
+
+<!-- ========================================================================
+     1. UNPLAYED / LOGIN STAGE PORTAL
+     ======================================================================== -->
+<div id="portal-container">
+  <div class="stage" id="stage">
+    <div class="tilt" id="tilt">
+      <canvas id="stars"></canvas>
+      <div class="abs ufo" style="top:9%;left:0;animation-duration:26s"></div>
+      <div class="abs ufo" style="top:15%;left:0;animation-duration:40s;animation-delay:-14s"></div>
+      <div class="abs beacon" style="left:14%;top:5%"></div>
+      <div class="abs beacon" style="left:7%;top:17.5%;animation-delay:.8s"></div>
+      <div class="abs beacon" style="left:95%;top:39%;animation-delay:.6s"></div>
+      <div class="abs scan"><i></i></div>
+
+      <!-- Live Squad Login Form -->
+      <form id="login-form" novalidate>
+        <label class="field" id="ft">
+          <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6z"/><circle cx="17.5" cy="9" r="2.4"/><path d="M17 14.2c2.5 0 4 1.8 4 4.3z"/></svg>
+          <input id="team-input" autocomplete="off" placeholder="Registered Squad Name" aria-label="Team name">
+        </label>
+        <label class="field" id="fp">
+          <svg viewBox="0 0 24 24"><path d="M7 10V8a5 5 0 0 1 10 0v2h1.5a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1z"/></svg>
+          <input id="pass-input" type="password" autocomplete="off" placeholder="Passcode / Captain Phone" aria-label="Password or badge">
+        </label>
+        <div class="abs err" id="login-err" role="alert"></div>
+        <button class="abs enter" id="enter-btn" type="submit">Board Skeld</button>
+      </form>
+
+      <!-- Talking Hull Crewmates -->
+      <button class="hot" data-m="Red is definitely not sus." style="left:0;top:38cqh;width:21cqw;height:20cqh" aria-label="Red"></button>
+      <button class="hot" data-m="I was in electrical. Trust me." style="left:85.5cqw;top:52.3cqh;width:14.5cqw;height:11.4cqh" aria-label="Purple"></button>
+      <button class="hot" data-m="Good luck, crew! Defend the ship!" style="left:0;top:71.8cqh;width:28.7cqw;height:15.5cqh" aria-label="Yellow"></button>
+      <button class="hot" data-m="Better together. Watch your vents." style="left:63.8cqw;top:81cqh;width:32cqw;height:19cqh" aria-label="Blue"></button>
+      <div class="bubble" id="speech-bubble"></div>
+    </div>
+
+    <!-- Hyperspace Warp Canvas -->
+    <div class="abs" id="warp" style="inset:0"><canvas id="wc"></canvas></div>
+    <div class="abs" id="welcome">
+      <h2 id="welcome-title">Welcome Aboard</h2>
+      <p id="welcome-sub">Synchronizing live Skeld database telemetry...</p>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================
+     2. MOBILE PLAYER DECK (AUTHENTICATED & ROLE-BASED)
+     ======================================================================== -->
+<div id="deck-container">
+  <!-- Top HUD -->
+  <header class="hud-header">
+    <div style="display:flex;align-items:center;gap:10px;min-width:0">
+      <div id="deck-room-icon" style="width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:18px">⚡</div>
+      <div style="min-width:0">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span id="deck-team-name" style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Squad</span>
+          <span id="deck-role-badge" class="role-badge crew">CREWMATE</span>
+        </div>
+        <div id="deck-room-name" style="font-size:11px;color:#94a3b8;font-family:'Space Mono',monospace">SEC-01 • Electrical</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span id="deck-score" style="font-family:'Space Mono',monospace;font-size:12px;font-weight:700;color:#facc15;background:rgba(0,0,0,0.5);padding:4px 8px;border-radius:8px">0 pts</span>
+      <button id="logout-btn" style="background:none;border:0;color:#94a3b8;cursor:pointer;padding:4px" title="Disconnect">✕</button>
+    </div>
+  </header>
+
+  <!-- Live Alarm Banners -->
+  <div id="sabotage-alarm" class="alarm-strip alarm-sabotage" style="display:none">
+    <span>⚠️ CRITICAL SABOTAGE: <strong id="sabotage-type-name">REACTOR</strong></span>
+    <button onclick="switchTab('sabotage')" style="padding:4px 8px;background:#fff;color:#dc2626;border:0;border-radius:6px;font-weight:800;font-size:10px">REPAIR</button>
+  </div>
+  <div id="emergency-alarm" class="alarm-strip alarm-emergency" style="display:none">
+    <span>🚨 EMERGENCY MEETING IN SESSION</span>
+    <button onclick="switchTab('radar')" style="padding:4px 8px;background:#000;color:#fff;border:0;border-radius:6px;font-weight:800;font-size:10px">ASSEMBLE</button>
+  </div>
+  <div id="frozen-warning" class="alarm-strip alarm-frozen" style="display:none">
+    <span>⚠️ IMPOSTOR POWERS FROZEN BY LEAD ADMIN</span>
+    <span style="font-weight:800">LOCKED</span>
+  </div>
+
+  <!-- Deck Main Content -->
+  <main class="deck-body" id="deck-body">
+    <!-- TAB 1: RADAR / SECTOR -->
+    <div id="tab-radar" class="tab-pane">
+      <div class="cyber-card" style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div style="font-size:10px;font-family:'Space Mono',monospace;color:#94a3b8;letter-spacing:1px">STATIONED SECTOR</div>
+            <h2 id="radar-room-title" style="margin:2px 0 0;font-size:20px;font-weight:800">Electrical</h2>
+            <p id="radar-room-desc" style="margin:4px 0 0;font-size:12px;color:#cbd5e1">Main power distribution and circuit breakers</p>
+          </div>
+          <span id="radar-room-big-icon" style="font-size:32px">⚡</span>
+        </div>
+      </div>
+
+      <!-- Emergency Button -->
+      <div class="cyber-card" style="text-align:center;margin-bottom:12px">
+        <button id="call-emergency-btn" style="width:100%;padding:14px;border-radius:14px;border:0;background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;font-weight:800;font-size:13px;text-transform:uppercase;letter-spacing:1px;box-shadow:0 0 20px rgba(239,68,68,0.5);cursor:pointer">
+          🚨 Call Emergency Meeting
+        </button>
+      </div>
+
+      <!-- 9-Sector Status Grid -->
+      <div class="cyber-card">
+        <div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:8px;text-transform:uppercase">Skeld Life Support Grid</div>
+        <div id="sector-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"></div>
+      </div>
+    </div>
+
+    <!-- TAB 2: TASKS -->
+    <div id="tab-tasks" class="tab-pane" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h3 id="tasks-heading" style="margin:0;font-size:14px;font-weight:700">Station Tasks</h3>
+        <span id="tasks-counter" style="font-size:11px;font-family:'Space Mono',monospace;background:rgba(255,255,255,0.1);padding:2px 8px;border-radius:10px">0/0</span>
+      </div>
+      <div id="tasks-list" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+
+    <!-- TAB 3: SABOTAGE -->
+    <div id="tab-sabotage" class="tab-pane" style="display:none">
+      <div id="impostor-sabotage-panel" style="display:none">
+        <div style="font-size:11px;font-weight:700;color:#f87171;margin-bottom:10px;text-transform:uppercase">Covert Sabotage Switchboard</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+          <button onclick="triggerSabotage('reactor')" class="btn-sabotage" style="padding:14px;border-radius:12px;background:#2d080e;border:1px solid #7f1d1d;color:#fff;text-align:left;cursor:pointer">
+            <span style="font-size:22px">⚛️</span>
+            <div style="font-weight:700;font-size:12px;margin-top:4px">Reactor Core</div>
+            <div style="font-size:10px;color:#94a3b8">Meltdown timer</div>
+          </button>
+          <button onclick="triggerSabotage('oxygen')" class="btn-sabotage" style="padding:14px;border-radius:12px;background:#2d080e;border:1px solid #7f1d1d;color:#fff;text-align:left;cursor:pointer">
+            <span style="font-size:22px">💨</span>
+            <div style="font-weight:700;font-size:12px;margin-top:4px">Oxygen Purge</div>
+            <div style="font-size:10px;color:#94a3b8">Deplete air</div>
+          </button>
+          <button onclick="triggerSabotage('lights')" class="btn-sabotage" style="padding:14px;border-radius:12px;background:#2d080e;border:1px solid #7f1d1d;color:#fff;text-align:left;cursor:pointer">
+            <span style="font-size:22px">⚡</span>
+            <div style="font-weight:700;font-size:12px;margin-top:4px">Kill Lights</div>
+            <div style="font-size:10px;color:#94a3b8">Black out Skeld</div>
+          </button>
+          <button onclick="triggerSabotage('comms')" class="btn-sabotage" style="padding:14px;border-radius:12px;background:#2d080e;border:1px solid #7f1d1d;color:#fff;text-align:left;cursor:pointer">
+            <span style="font-size:22px">📡</span>
+            <div style="font-weight:700;font-size:12px;margin-top:4px">Jam Comms</div>
+            <div style="font-size:10px;color:#94a3b8">Scramble radar</div>
+          </button>
+        </div>
+        <button onclick="openKillModal()" style="width:100%;padding:14px;border-radius:12px;border:0;background:#dc2626;color:#fff;font-weight:800;font-size:12px;text-transform:uppercase;cursor:pointer">
+          🎯 Report Covert Elimination (+150 pts)
+        </button>
+      </div>
+
+      <div id="crewmate-sabotage-panel">
+        <div class="cyber-card" id="sabotage-repair-box">
+          <div style="font-size:12px;font-weight:700;margin-bottom:6px">Damage Control Status</div>
+          <div id="sabotage-status-text" style="font-size:12px;color:#4ade80">All station systems nominal.</div>
+          <div id="sabotage-action-container" style="margin-top:12px;display:none">
+            <button onclick="resolveSabotage()" class="btn-primary" style="background:#22c55e">Stabilize & Clear Sabotage (+120 pts)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: SQUAD -->
+    <div id="tab-squad" class="tab-pane" style="display:none">
+      <div class="cyber-card" style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:10px">
+          <div>
+            <h3 id="squad-name" style="margin:0;font-size:16px;font-weight:800">Squad Name</h3>
+            <span id="squad-badge" style="font-family:'Space Mono',monospace;font-size:11px;color:#94a3b8">Badge: NX-001</span>
+          </div>
+          <div style="text-align:right">
+            <div id="squad-pts" style="font-family:'Space Mono',monospace;font-size:16px;font-weight:800;color:#facc15">0</div>
+            <div style="font-size:9px;color:#64748b">TOTAL POINTS</div>
+          </div>
+        </div>
+        <div id="impostor-classified-box" style="display:none;background:#2d080e;border:1px solid #dc2626;padding:10px;border-radius:10px;font-size:11px">
+          <strong style="color:#f87171">CLASSIFIED AGENT:</strong>
+          <span id="impostor-agent-name" style="color:#fff">Leader</span>
+        </div>
+        <div style="font-size:12px">
+          <span style="color:#64748b;display:block;font-size:10px">COMMANDER</span>
+          <span id="squad-leader" style="font-weight:600">Leader</span>
+        </div>
+        <div style="font-size:12px">
+          <span style="color:#64748b;display:block;font-size:10px">PERSONNEL</span>
+          <span id="squad-members" style="font-weight:600">Members</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 5: TELEMETRY LOGS -->
+    <div id="tab-logs" class="tab-pane" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Live Ship Telemetry</span>
+        <span style="font-size:10px;color:#00F0FF;font-family:'Space Mono',monospace">● LIVE SYNC</span>
+      </div>
+      <div id="logs-container" style="display:flex;flex-direction:column;gap:6px"></div>
+    </div>
+  </main>
+
+  <!-- Bottom Thumb-Friendly Nav -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" onclick="switchTab('radar')" id="nav-radar">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+      <span>Sector</span>
+    </button>
+    <button class="nav-btn" onclick="switchTab('tasks')" id="nav-tasks">
+      <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      <span id="nav-tasks-label">Tasks</span>
+    </button>
+    <button class="nav-btn" onclick="switchTab('sabotage')" id="nav-sabotage">
+      <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <span>Sabotage</span>
+    </button>
+    <button class="nav-btn" onclick="switchTab('squad')" id="nav-squad">
+      <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <span>Squad</span>
+    </button>
+    <button class="nav-btn" onclick="switchTab('logs')" id="nav-logs">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <span>Telemetry</span>
+    </button>
+  </nav>
+</div>
+
+<!-- Task Modal -->
+<div class="modal-overlay" id="task-modal">
+  <div class="modal-card">
+    <div style="font-size:10px;font-family:'Space Mono',monospace;color:var(--cyan);text-transform:uppercase" id="modal-task-room">[ELECTRICAL]</div>
+    <h3 style="margin:2px 0 8px;font-size:16px" id="modal-task-title">Task Title</h3>
+    <p style="font-size:12px;color:#cbd5e1;line-height:1.4" id="modal-task-desc">Task description...</p>
+    <pre id="modal-task-snippet" style="background:rgba(0,0,0,0.6);padding:10px;border-radius:10px;font-size:11px;color:#67e8f9;margin:10px 0;overflow-x:auto"></pre>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button onclick="closeTaskModal()" style="flex:1;padding:10px;border-radius:10px;background:none;border:1px solid rgba(255,255,255,0.2);color:#fff">Cancel</button>
+      <button onclick="executeTaskModal()" class="btn-primary" style="flex:1">Execute & Submit</button>
+    </div>
+  </div>
+</div>
+
+<!-- Emergency Modal -->
+<div class="modal-overlay" id="emergency-modal">
+  <div class="modal-card" style="background:#1a080f;border-color:var(--red)">
+    <h3 style="margin:0 0 10px;font-size:16px;color:#f87171">🚨 Call Emergency Gathering</h3>
+    <label style="font-size:11px;color:#cbd5e1;display:block;margin-bottom:4px">Reason for alert:</label>
+    <input id="emergency-reason" placeholder="e.g. Body discovered in MedBay" style="width:100%;padding:10px;border-radius:10px;background:rgba(0,0,0,0.5);border:1px solid #7f1d1d;color:#fff;font-size:12px;outline:none;margin-bottom:12px">
+    <div style="display:flex;gap:8px">
+      <button onclick="closeEmergencyModal()" style="flex:1;padding:10px;border-radius:10px;background:none;border:1px solid rgba(255,255,255,0.2);color:#fff">Cancel</button>
+      <button onclick="submitEmergency()" style="flex:1;padding:10px;border-radius:10px;background:#dc2626;border:0;color:#fff;font-weight:800;font-size:12px">Trigger Siren</button>
+    </div>
+  </div>
+</div>
+
+<!-- Kill Modal -->
+<div class="modal-overlay" id="kill-modal">
+  <div class="modal-card" style="background:#1a080f;border-color:var(--red)">
+    <h3 style="margin:0 0 10px;font-size:16px;color:#f87171">🎯 Log Covert Strike</h3>
+    <label style="font-size:11px;color:#cbd5e1;display:block;margin-bottom:4px">Eliminated Crewmate/Squad:</label>
+    <input id="kill-target" placeholder="e.g. Player Alex Vance" style="width:100%;padding:10px;border-radius:10px;background:rgba(0,0,0,0.5);border:1px solid #7f1d1d;color:#fff;font-size:12px;outline:none;margin-bottom:12px">
+    <div style="display:flex;gap:8px">
+      <button onclick="closeKillModal()" style="flex:1;padding:10px;border-radius:10px;background:none;border:1px solid rgba(255,255,255,0.2);color:#fff">Cancel</button>
+      <button onclick="submitKill()" style="flex:1;padding:10px;border-radius:10px;background:#dc2626;border:0;color:#fff;font-weight:800;font-size:12px">Confirm Strike</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================================
+// AUDIO SYNTHESIZER
+// ============================================================================
+var AC;
+function beep(f, d, t) {
+  try {
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+    var o = AC.createOscillator(), g = AC.createGain();
+    o.frequency.value = f;
+    o.type = t || 'square';
+    g.gain.value = .04;
+    o.connect(g);
+    g.connect(AC.destination);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(.0001, AC.currentTime + d);
+    o.stop(AC.currentTime + d);
+  } catch(e) {}
+}
+function soundSuccess() { beep(523, .08, 'triangle'); setTimeout(function(){ beep(659, .08, 'triangle'); }, 80); setTimeout(function(){ beep(783, .15, 'triangle'); }, 160); }
+function soundSabotage() { beep(330, .25, 'sawtooth'); setTimeout(function(){ beep(260, .35, 'sawtooth'); }, 260); }
+function soundEmergency() { beep(440, .2, 'sawtooth'); setTimeout(function(){ beep(880, .25, 'sawtooth'); }, 220); }
+
+// ============================================================================
+// DATABASE & REALTIME SYNCHRONIZATION
+// ============================================================================
+var SUPABASE_URL = localStorage.getItem('nexus_supabase_url') || 'https://ezbselibyrmernjmhrnb.supabase.co';
+var SUPABASE_ANON = localStorage.getItem('nexus_supabase_anon') || 'sb_publishable_WTYbDTzRoSQ87gbS_ZVtEQ_16LYMQB7';
+var sb = (SUPABASE_URL && SUPABASE_ANON) ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON) : null;
+
+var currentTeam = null;
+var currentControls = { status: 'running', impostor_powers_active: true, active_sabotage: null, emergency_active: false };
+var currentTasks = [];
+var currentLogs = [];
+var selectedTaskItem = null;
+
+var SECTORS = {
+  Electrical: { code: 'SEC-01', icon: '⚡', desc: 'Main power distribution & circuit breakers' },
+  Reactor: { code: 'SEC-02', icon: '⚛️', desc: 'Core quantum flux manifold' },
+  MedBay: { code: 'SEC-03', icon: '🧬', desc: 'Biometric scan diagnostics' },
+  Navigation: { code: 'SEC-04', icon: '🧭', desc: 'Sublight charting telemetry' },
+  Admin: { code: 'SEC-05', icon: '📋', desc: 'ID swipe & deck manifest' },
+  Weapons: { code: 'SEC-06', icon: '🎯', desc: 'Meteor deflection targeting' },
+  O2: { code: 'SEC-07', icon: '💨', desc: 'Atmospheric oxygen scrubbers' },
+  Cafeteria: { code: 'SEC-08', icon: '☕', desc: 'Central emergency gathering hub' },
+  Communications: { code: 'SEC-09', icon: '📡', desc: 'Subspace radio transceiver' }
+};
+
+// Local storage fallback state
+function getLocalTeams() {
+  try { return JSON.parse(localStorage.getItem('nexus_amongus_teams') || '[]'); } catch(e){ return []; }
+}
+function saveLocalTeams(teams) {
+  localStorage.setItem('nexus_amongus_teams', JSON.stringify(teams));
+  window.dispatchEvent(new CustomEvent('nexus:teams_updated', { detail: teams }));
+}
+function getLocalControls() {
+  try { return JSON.parse(localStorage.getItem('nexus_event_controls') || '{}'); } catch(e){ return {}; }
+}
+function saveLocalControls(c) {
+  localStorage.setItem('nexus_event_controls', JSON.stringify(c));
+  window.dispatchEvent(new CustomEvent('nexus:controls_updated', { detail: c }));
+}
+
+// Check saved session
+var savedId = localStorage.getItem('nexus_player_team_id');
+if (savedId) {
+  var tms = getLocalTeams();
+  var match = tms.find(function(t){ return t.id === savedId; });
+  if (match) {
+    currentTeam = match;
+    enterDeck();
+  }
+}
+
+// Twinkling stars
+var sc = document.getElementById('stars'), sx = sc.getContext('2d'), S = [];
+function fit(cv) { var r = document.getElementById('stage').getBoundingClientRect(); cv.width = r.width; cv.height = r.height; }
+function mkStars() { fit(sc); S = []; for (var i=0; i<70; i++) S.push({ x: Math.random()*sc.width, y: Math.random()*sc.height*.38, r: Math.random()*1.5+.4, p: Math.random()*6 }); }
+mkStars();
+window.addEventListener('resize', mkStars);
+
+var shoot = null;
+function tickStars(t) {
+  if (currentTeam) return;
+  sx.clearRect(0,0,sc.width,sc.height);
+  S.forEach(function(s){
+    sx.globalAlpha = .25 + .75*Math.abs(Math.sin(t/900 + s.p));
+    sx.fillStyle = '#cfe4ff';
+    sx.beginPath();
+    sx.arc(s.x, s.y, s.r, 0, 6.3);
+    sx.fill();
+  });
+  if (!shoot && Math.random() < .005) shoot = { x: Math.random()*sc.width*.8, y: Math.random()*sc.height*.15, l: 0 };
+  if (shoot) {
+    shoot.l += .04;
+    sx.globalAlpha = Math.max(0, 1 - shoot.l);
+    sx.strokeStyle = '#fff';
+    sx.lineWidth = 2;
+    sx.beginPath();
+    sx.moveTo(shoot.x + shoot.l*sc.width*.3, shoot.y + shoot.l*sc.width*.12);
+    sx.lineTo(shoot.x + shoot.l*sc.width*.3 - sc.width*.1, shoot.y + shoot.l*sc.width*.12 - sc.width*.04);
+    sx.stroke();
+    if (shoot.l >= 1) shoot = null;
+  }
+  requestAnimationFrame(tickStars);
+}
+requestAnimationFrame(tickStars);
+
+// Speech bubbles
+var bub = document.getElementById('speech-bubble'), bt;
+document.querySelectorAll('.hot').forEach(function(b){
+  b.addEventListener('click', function(){
+    var l = parseFloat(b.style.left), t = parseFloat(b.style.top), w = parseFloat(b.style.width);
+    bub.textContent = b.dataset.m;
+    bub.style.left = Math.min(Math.max(l + w/2 - 22, 2), 54) + 'cqw';
+    bub.style.top = (t - 9) + 'cqh';
+    bub.classList.add('on');
+    beep(520 + Math.random()*300, .12);
+    clearTimeout(bt);
+    bt = setTimeout(function(){ bub.classList.remove('on'); }, 2000);
+  });
+});
+
+// Tilt
+document.body.addEventListener('pointermove', function(e){
+  if (currentTeam) return;
+  var tilt = document.getElementById('tilt');
+  var x = e.clientX / innerWidth - .5, y = e.clientY / innerHeight - .5;
+  tilt.style.transform = 'rotateY(' + (x*5) + 'deg) rotateX(' + (-y*5) + 'deg) scale(1.02)';
+});
+document.body.addEventListener('pointerleave', function(){ document.getElementById('tilt').style.transform = ''; });
+
+// Login Form Submit
+document.getElementById('login-form').addEventListener('submit', function(e){
+  e.preventDefault();
+  var teamVal = document.getElementById('team-input').value.trim();
+  var passVal = document.getElementById('pass-input').value.trim();
+  var errEl = document.getElementById('login-err');
+  errEl.textContent = '';
+
+  if (!teamVal) { errEl.textContent = 'Enter your squad name to continue.'; beep(140, .25); return; }
+  if (!passVal) { errEl.textContent = 'Enter your password or captain phone.'; beep(140, .25); return; }
+
+  // Query Database
+  if (sb) {
+    sb.from('teams').select('*').ilike('name', teamVal).maybeSingle().then(function(res){
+      if (res.data) {
+        processLoginSuccess(res.data, passVal);
+      } else {
+        fallbackLocalLogin(teamVal, passVal);
+      }
+    }).catch(function(){ fallbackLocalLogin(teamVal, passVal); });
+  } else {
+    fallbackLocalLogin(teamVal, passVal);
+  }
+});
+
+function fallbackLocalLogin(teamVal, passVal) {
+  var tms = getLocalTeams();
+  var match = tms.find(function(t){ return t.name.toLowerCase() === teamVal.toLowerCase(); });
+  if (!match) {
+    document.getElementById('login-err').textContent = 'Squad not found in Skeld database.';
+    beep(140, .25);
+    return;
+  }
+  processLoginSuccess(match, passVal);
+}
+
+function processLoginSuccess(teamObj, passVal) {
+  currentTeam = teamObj;
+  localStorage.setItem('nexus_player_team_id', teamObj.id);
+  beep(880, .1);
+
+  // Run hyperspace warp
+  var wp = document.getElementById('warp'), wc = document.getElementById('wc'), wx = wc.getContext('2d'), W = [];
+  fit(wc);
+  for (var i=0; i<180; i++) W.push({ a: Math.random()*6.28, d: Math.random()*.2, v: Math.random()*.01 + .004 });
+  wp.classList.add('on');
+  document.getElementById('welcome-title').textContent = 'Welcome Aboard, ' + (teamObj.name || 'Agent');
+  var t0 = performance.now();
+
+  function frame(now){
+    var k = Math.min((now - t0)/2000, 1);
+    wx.fillStyle = 'rgba(2,3,12,.28)';
+    wx.fillRect(0,0,wc.width,wc.height);
+    var cx = wc.width/2, cy = wc.height/2, m = Math.max(wc.width, wc.height);
+    W.forEach(function(s){
+      var p = s.d; s.d += s.v*(1 + k*9); var q = s.d;
+      wx.strokeStyle = 'rgba(180,220,255,' + Math.min(.3+q, 1) + ')';
+      wx.lineWidth = 1 + q*2;
+      wx.beginPath();
+      wx.moveTo(cx + Math.cos(s.a)*p*m, cy + Math.sin(s.a)*p*m);
+      wx.lineTo(cx + Math.cos(s.a)*q*m, cy + Math.sin(s.a)*q*m);
+      wx.stroke();
+      if (q > .8) s.d = Math.random()*.1;
+    });
+    if (k > .5) document.getElementById('welcome').classList.add('on');
+    if (k < 1) requestAnimationFrame(frame);
+    else setTimeout(enterDeck, 400);
+  }
+  requestAnimationFrame(frame);
+}
+
+// Enter Player Deck
+function enterDeck() {
+  document.getElementById('portal-container').style.display = 'none';
+  var deck = document.getElementById('deck-container');
+  deck.style.display = 'flex';
+
+  var isImp = Boolean(currentTeam.isImpostor);
+  if (isImp) {
+    deck.classList.add('is-impostor');
+    document.getElementById('deck-role-badge').className = 'role-badge imp';
+    document.getElementById('deck-role-badge').textContent = 'IMPOSTOR';
+    document.getElementById('impostor-sabotage-panel').style.display = 'block';
+    document.getElementById('crewmate-sabotage-panel').style.display = 'none';
+    document.getElementById('impostor-classified-box').style.display = 'block';
+    document.getElementById('impostor-agent-name').textContent = currentTeam.impostorPlayerName || currentTeam.leaderName || 'Covert Saboteur';
+    document.getElementById('tasks-heading').textContent = 'Covert Deception Manifest';
+    document.getElementById('nav-tasks-label').textContent = 'Deception';
+  } else {
+    deck.classList.remove('is-impostor');
+    document.getElementById('deck-role-badge').className = 'role-badge crew';
+    document.getElementById('deck-role-badge').textContent = 'CREWMATE';
+    document.getElementById('impostor-sabotage-panel').style.display = 'none';
+    document.getElementById('crewmate-sabotage-panel').style.display = 'block';
+    document.getElementById('impostor-classified-box').style.display = 'none';
+    document.getElementById('tasks-heading').textContent = 'Station Tasks';
+    document.getElementById('nav-tasks-label').textContent = 'Tasks';
+  }
+
+  updateHUD();
+  renderRadar();
+  loadTasks();
+  loadLogs();
+  initRealtime();
+}
+
+function updateHUD() {
+  if (!currentTeam) return;
+  var room = currentTeam.assignedRoom || 'Cafeteria';
+  var meta = SECTORS[room] || SECTORS.Cafeteria;
+
+  document.getElementById('deck-team-name').textContent = currentTeam.name;
+  document.getElementById('deck-room-name').textContent = meta.code + ' • ' + room;
+  document.getElementById('deck-room-icon').textContent = meta.icon;
+  document.getElementById('deck-score').textContent = (currentTeam.score || 0) + ' pts';
+
+  // Radar
+  document.getElementById('radar-room-title').textContent = room;
+  document.getElementById('radar-room-desc').textContent = meta.desc;
+  document.getElementById('radar-room-big-icon').textContent = meta.icon;
+
+  // Squad Tab
+  document.getElementById('squad-name').textContent = currentTeam.name;
+  document.getElementById('squad-badge').textContent = 'Badge: ' + (currentTeam.badgeCode || 'NX-SKELD');
+  document.getElementById('squad-pts').textContent = currentTeam.score || 0;
+  document.getElementById('squad-leader').textContent = currentTeam.leaderName || 'Leader';
+  document.getElementById('squad-members').textContent = Array.isArray(currentTeam.members) ? currentTeam.members.join(', ') : currentTeam.leaderName;
+
+  // Controls Check
+  var c = getLocalControls();
+  currentControls = Object.assign(currentControls, c);
+
+  document.getElementById('sabotage-alarm').style.display = currentControls.active_sabotage ? 'flex' : 'none';
+  if (currentControls.active_sabotage) {
+    document.getElementById('sabotage-type-name').textContent = currentControls.active_sabotage;
+    document.getElementById('sabotage-status-text').textContent = 'CRITICAL: ' + currentControls.active_sabotage.toUpperCase() + ' ANOMALY ACTIVE!';
+    document.getElementById('sabotage-status-text').style.color = '#ef4444';
+    document.getElementById('sabotage-action-container').style.display = 'block';
+  } else {
+    document.getElementById('sabotage-status-text').textContent = 'All station systems nominal.';
+    document.getElementById('sabotage-status-text').style.color = '#4ade80';
+    document.getElementById('sabotage-action-container').style.display = 'none';
+  }
+
+  document.getElementById('emergency-alarm').style.display = currentControls.emergency_active ? 'flex' : 'none';
+  document.getElementById('frozen-warning').style.display = (currentTeam.isImpostor && !currentControls.impostor_powers_active) ? 'flex' : 'none';
+}
+
+function renderRadar() {
+  var grid = document.getElementById('sector-grid');
+  grid.innerHTML = '';
+  var currentRoom = currentTeam.assignedRoom || 'Cafeteria';
+
+  Object.keys(SECTORS).forEach(function(roomName){
+    var s = SECTORS[roomName];
+    var isHere = roomName === currentRoom;
+    var el = document.createElement('div');
+    el.style.padding = '8px';
+    el.style.borderRadius = '10px';
+    el.style.textAlign = 'center';
+    el.style.border = isHere ? '1px solid var(--cyan)' : '1px solid rgba(255,255,255,0.06)';
+    el.style.background = isHere ? 'rgba(0,240,255,0.15)' : 'rgba(0,0,0,0.3)';
+    el.innerHTML = '<span style="font-size:18px">' + s.icon + '</span><div style="font-size:10px;font-weight:700;margin-top:2px">' + roomName + '</div><div style="font-size:8px;font-family:\'Space Mono\',monospace;color:#64748b">' + s.code + '</div>';
+    grid.appendChild(el);
+  });
+}
+
+function loadTasks() {
+  try {
+    currentTasks = JSON.parse(localStorage.getItem('nexus_station_tasks') || '[]');
+  } catch(e){ currentTasks = []; }
+
+  var list = document.getElementById('tasks-list');
+  list.innerHTML = '';
+  var completed = currentTasks.filter(function(t){ return t.status === 'completed'; }).length;
+  document.getElementById('tasks-counter').textContent = completed + '/' + currentTasks.length;
+
+  currentTasks.forEach(function(task){
+    var el = document.createElement('div');
+    el.style.padding = '12px';
+    el.style.borderRadius = '12px';
+    el.style.border = '1px solid rgba(255,255,255,0.1)';
+    el.style.background = task.status === 'completed' ? 'rgba(16,185,129,0.1)' : 'rgba(0,0,0,0.4)';
+    el.style.cursor = 'pointer';
+
+    el.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-size:12px;font-weight:700">' + (task.status === 'completed' ? '✓ ' : '⚡ ') + task.title + '</div><div style="font-size:10px;color:#94a3b8;margin-top:2px">[' + task.room + '] ' + task.description + '</div></div><span style="font-family:\'Space Mono\',monospace;font-size:10px;color:#facc15">+' + task.points + ' pts</span></div>';
+
+    if (!currentTeam.isImpostor && task.status !== 'completed') {
+      el.addEventListener('click', function(){ openTaskModal(task); });
+    }
+    list.appendChild(el);
+  });
+}
+
+function loadLogs() {
+  try { currentLogs = JSON.parse(localStorage.getItem('nexus_activity_logs') || '[]'); } catch(e){ currentLogs = []; }
+  var container = document.getElementById('logs-container');
+  container.innerHTML = '';
+  currentLogs.slice(0, 15).forEach(function(log){
+    var el = document.createElement('div');
+    el.style.padding = '8px 10px';
+    el.style.borderRadius = '8px';
+    el.style.border = '1px solid rgba(255,255,255,0.06)';
+    el.style.fontSize = '11px';
+    el.style.fontFamily = "'Space Mono', monospace";
+    el.style.background = log.severity === 'danger' ? 'rgba(239,68,68,0.15)' : 'rgba(0,0,0,0.3)';
+    el.innerHTML = '<div style="display:flex;justify-content:space-between;color:#64748b;font-size:9px"><span>[' + log.type.toUpperCase() + ']</span><span>' + new Date(log.created_at || Date.now()).toLocaleTimeString() + '</span></div><div>' + log.message + '</div>';
+    container.appendChild(el);
+  });
+}
+
+function initRealtime() {
+  window.addEventListener('nexus:teams_updated', function(e){
+    var teams = e.detail || getLocalTeams();
+    var match = teams.find(function(t){ return t.id === currentTeam.id; });
+    if (match) { currentTeam = match; updateHUD(); }
+  });
+  window.addEventListener('nexus:controls_updated', function(e){
+    currentControls = e.detail || getLocalControls();
+    updateHUD();
+  });
+  window.addEventListener('nexus:tasks_updated', function(){ loadTasks(); });
+  window.addEventListener('nexus:logs_updated', function(){ loadLogs(); });
+
+  window.addEventListener('storage', function(){
+    var teams = getLocalTeams();
+    var match = teams.find(function(t){ return t.id === currentTeam.id; });
+    if (match) { currentTeam = match; updateHUD(); }
+    loadTasks();
+    loadLogs();
+  });
+}
+
+// Tab Switching
+function switchTab(tabName) {
+  ['radar','tasks','sabotage','squad','logs'].forEach(function(t){
+    document.getElementById('tab-' + t).style.display = (t === tabName) ? 'block' : 'none';
+    var btn = document.getElementById('nav-' + t);
+    if (btn) btn.classList.toggle('active', t === tabName);
+  });
+  beep(700, .04, 'sine');
+}
+
+// Actions
+function openTaskModal(t) {
+  selectedTaskItem = t;
+  document.getElementById('modal-task-room').textContent = '[' + t.room + '] SECTOR TASK';
+  document.getElementById('modal-task-title').textContent = t.title;
+  document.getElementById('modal-task-desc').textContent = t.description;
+  document.getElementById('modal-task-snippet').textContent = t.snippet || 'Run diagnostic sequence...';
+  document.getElementById('task-modal').style.display = 'flex';
+  beep(520, .08);
+}
+function closeTaskModal() { document.getElementById('task-modal').style.display = 'none'; }
+function executeTaskModal() {
+  if (!selectedTaskItem || !currentTeam) return;
+  soundSuccess();
+  selectedTaskItem.status = 'completed';
+  currentTeam.score = (currentTeam.score || 0) + (selectedTaskItem.points || 100);
+  currentTeam.tasksCompleted = (currentTeam.tasksCompleted || 0) + 1;
+
+  // Save
+  var tasks = getLocalTasks();
+  var updatedTasks = tasks.map(function(t){ return t.id === selectedTaskItem.id ? selectedTaskItem : t; });
+  localStorage.setItem('nexus_station_tasks', JSON.stringify(updatedTasks));
+  window.dispatchEvent(new CustomEvent('nexus:tasks_updated', { detail: updatedTasks }));
+
+  var teams = getLocalTeams();
+  var updatedTeams = teams.map(function(t){ return t.id === currentTeam.id ? currentTeam : t; });
+  saveLocalTeams(updatedTeams);
+
+  closeTaskModal();
+  updateHUD();
+  loadTasks();
+}
+
+// Sabotage
+function triggerSabotage(type) {
+  if (!currentControls.impostor_powers_active) {
+    alert('Impostor powers are currently frozen by Lead Facilitator!');
+    return;
+  }
+  soundSabotage();
+  currentControls.active_sabotage = type;
+  saveLocalControls(currentControls);
+  updateHUD();
+}
+function resolveSabotage() {
+  soundSuccess();
+  currentControls.active_sabotage = null;
+  saveLocalControls(currentControls);
+  currentTeam.score = (currentTeam.score || 0) + 120;
+  var teams = getLocalTeams();
+  var updatedTeams = teams.map(function(t){ return t.id === currentTeam.id ? currentTeam : t; });
+  saveLocalTeams(updatedTeams);
+  updateHUD();
+}
+
+// Emergency
+document.getElementById('call-emergency-btn').addEventListener('click', function(){
+  document.getElementById('emergency-modal').style.display = 'flex';
+});
+function closeEmergencyModal() { document.getElementById('emergency-modal').style.display = 'none'; }
+function submitEmergency() {
+  soundEmergency();
+  var reason = document.getElementById('emergency-reason').value.trim() || 'Emergency meeting convened';
+  currentControls.emergency_active = true;
+  saveLocalControls(currentControls);
+  closeEmergencyModal();
+  updateHUD();
+}
+
+// Kill Modal
+function openKillModal() { document.getElementById('kill-modal').style.display = 'flex'; }
+function closeKillModal() { document.getElementById('kill-modal').style.display = 'none'; }
+function submitKill() {
+  var target = document.getElementById('kill-target').value.trim() || 'Crewmate';
+  beep(200, .3, 'sawtooth');
+  currentTeam.score = (currentTeam.score || 0) + 150;
+  var teams = getLocalTeams();
+  var updatedTeams = teams.map(function(t){ return t.id === currentTeam.id ? currentTeam : t; });
+  saveLocalTeams(updatedTeams);
+  closeKillModal();
+  updateHUD();
+}
+
+// Logout
+document.getElementById('logout-btn').addEventListener('click', function(){
+  localStorage.removeItem('nexus_player_team_id');
+  currentTeam = null;
+  document.getElementById('deck-container').style.display = 'none';
+  document.getElementById('portal-container').style.display = 'flex';
+  document.getElementById('warp').classList.remove('on');
+  document.getElementById('welcome').classList.remove('on');
+});
+</script>
+</body>
+</html>

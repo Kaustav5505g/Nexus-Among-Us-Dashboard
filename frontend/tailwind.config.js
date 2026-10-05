@@ -7,28 +7,29 @@ export default {
   theme: {
     extend: {
       colors: {
-        space: {
-          950: '#070a13',
-          900: '#0b0f19',
-          800: '#131b2e',
-          700: '#1e2942',
-        },
-        impostor: {
-          red: '#ff1a53',
-          glow: '#ff003c',
-        },
-        crew: {
-          cyan: '#00f0ff',
-          lime: '#10b981',
-          gold: '#fbbf24',
+        paper: {
+          50: '#ffffff',
+          100: '#fafafa',
+          200: '#f4f4f5',
+          300: '#e4e4e7',
+          400: '#d4d4d8',
+          500: '#a1a1aa',
+          600: '#71717a',
+          700: '#52525b',
+          800: '#27272a',
+          900: '#18181b',
+          950: '#09090b',
         }
       },
       fontFamily: {
-        mono: ['Fira Code', 'Courier New', 'monospace'],
+        sans: ['Plus Jakarta Sans', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        serif: ['Playfair Display', 'Georgia', 'serif'],
+        display: ['Space Grotesk', 'Plus Jakarta Sans', 'sans-serif'],
+        mono: ['Space Mono', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
-      animation: {
-        'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        'radar-sweep': 'spin 4s linear infinite',
+      letterSpacing: {
+        'ultra-wide': '0.3em',
+        'architectural': '0.15em',
       }
     },
   },
