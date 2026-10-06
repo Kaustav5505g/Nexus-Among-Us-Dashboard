@@ -14,6 +14,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Room-Level Impostor Allotment Engine**:
+  - Added support for rooms containing any number of teams ($N$ teams per room), where 1 entire team in the room is designated as the **IMPOSTOR** team while the remaining teams act as **CREWMATE** teams.
+  - **🎲 Random Impostor Roll**: 1-click cryptographically secure random roll using `window.crypto.getRandomValues` to select 1 team out of all teams in that room as the Impostor.
+  - **Custom Admin Override**: Admin can manually assign or override the room Impostor via a dedicated dropdown selector on each room card, or toggle individual teams via "Make Impostor" / "Make Crew" buttons.
+  - **Clear Admin Visibility**: Prominent Impostor status banner on each room card (`Room Impostor: [Team Name (NX-T...)]` or `None set`) and dedicated team badges (`IMPOSTOR` vs `Crewmate`).
+- **Player Terminal Role Dispatch & Sabotage Power Console (`frontend/player.html`)**:
+  - Connected player portal so all members of an authenticated team see their designated role (**ROLE: IMPOSTOR** or **ROLE: CREWMATE**), alongside the requested notice *"To be made by backend team"*.
+  - **Interactive Impostor Sabotage Console**: Impostor teams can execute live sabotages (*Sabotage Lights*, *Door Lockdown*, *Comms Blackout*, *Fake Task Signal*) with active cooldown timers.
+  - **Crewmate Action Console**: Crewmate teams have dedicated action buttons (*Report Suspicion*, *Submit Clue Decipher*).
+  - **Real-Time Synchronization**: Player terminal automatically synchronizes role changes across browser tabs/devices within 3 seconds using `localStorage` event listeners and polling.
+- **Real-Time Admin Activity & Audit Logs Deck (`5. Activity Logs` in `AmongUsAdmin.tsx`)**:
+  - Added dedicated Activity Logs tab streaming real-time event logs, including Impostor power activations, admin role rolls/overrides, team logins, and system events.
+  - Auto-refreshes every 3 seconds to capture live player actions.
+  - Category filter pills (`All`, `Powers`, `Role Assignments`, `Sabotages`, `Logins`, `System`), keyword search bar, CSV export (`nexus_audit_logs.csv`), and clear logs capability.
+- **Player Login Telemetry & Role Detection (`frontend/index2.html`)**:
+  - Authenticated team logins automatically record a login event with the detected team role into `nexus_activity_logs_v2`.
+  - Dynamic warp animation alerting users of their detected role before redirecting to `player.html`.
+- **Master Admin User Management Panel**: Added dedicated `4. User Panel` in `AmongUsAdmin.tsx` accessible exclusively by Master Admin (`super_admin`).
+  - Master Admin can create, edit, and delete **Sub-Admins** and **Moderators**.
+  - Includes full credentials creation (Facilitator ID, Name, Email, Login Password, Designation, and Sector/Room Assignment).
+  - One-click role switcher dropdown to instantly promote or demote staff between Sub-Admin and Moderator roles.
+  - Integration with `AllocationDatabase.getStaffUsers()` and `AdminAuthContext` so newly created sub-admins and moderators can immediately sign in.
+  - Protection guard ensuring the primary Master Admin account cannot be altered or accidentally deleted.
+- **Player Team ID Authentication System**: Connected `frontend/index2.html` player login directly to the application database (`nexus_teams_v2` / initial teams). Players log in using their assigned Team ID (e.g. `NX-T1`, `NX-T2`).
+- **Official Team ID Badges & Export in Admin Panel**: Added distinct `teamCode` identifiers (e.g. `NX-T1`, `NX-T2`) to teams across `types`, `initialAdminData`, `gameDatabase`, and the Admin UI card badges and CSV export.
+- **Dedicated Player Terminal Placeholder (`frontend/player.html`)**: Created minimal black & white player terminal page displaying the requested notice: *"To be made by backend team"*, along with authenticated team details (Team Name, Official Team ID, Allocated Room, Sector Zone, and Assigned POC/Contact).
+- **Vite Multi-Page Build Configuration**: Configured `frontend/vite.config.ts` `rollupOptions.input` to bundle `index.html` (Admin), `index2.html` (Player Login Portal), and `player.html` (Player Terminal).
+
 ### Changed
 - **Modern Crisp Black & White Interface (Zero Paper Texture)**: Replaced retro paper textures and newsprint artifacts with a sleek, modern, flat black-and-white interface (`#ffffff` surfaces, pure `#000000` text/buttons, clean border dividers, and subtle rounded corners).
 - **Removed Demo Logins**: Eliminated all pre-filled demo logins, demo helper buttons, and credentials hints. Login inputs now start completely blank for real event authentication.

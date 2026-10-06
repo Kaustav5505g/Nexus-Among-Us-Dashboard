@@ -126,8 +126,8 @@ input[aria-invalid=true]{border-color:var(--bad)}
     </div>
     <div class="frame" id="frame"><div class="in">
       <form id="f" novalidate="">
-        <div class="inp"><label class="sr" for="tname">Team name</label><svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"></circle><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6"></path><circle cx="17.5" cy="9" r="2.4"></circle><path d="M17 14.2c2.4.2 4 2.2 4 4.8"></path></svg><input type="text" id="tname" maxlength="24" autocomplete="off" autocapitalize="words" enterkeyhint="next" placeholder="Team Name"></div>
-        <div class="inp"><label class="sr" for="phone">Phone number</label><svg class="ic" viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"></path></svg><input type="tel" id="phone" maxlength="18" inputmode="tel" autocomplete="off" enterkeyhint="go" placeholder="Phone Number"></div>
+        <div class="inp"><label class="sr" for="tid">Team ID</label><svg class="ic" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M7 8h10M7 12h10M7 16h6"></path></svg><input type="text" id="tid" maxlength="32" autocomplete="off" autocapitalize="characters" enterkeyhint="next" placeholder="Team ID (e.g. NX-T1)" style="text-transform:uppercase;"></div>
+        <div class="inp"><label class="sr" for="pname">Player Name</label><svg class="ic" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"></circle><path d="M5.5 21a8.38 8.38 0 0 1 13 0"></path></svg><input type="text" id="pname" maxlength="32" autocomplete="off" autocapitalize="words" enterkeyhint="go" placeholder="Player Name (Optional)"></div>
         <div class="err" id="err" role="alert"></div>
         <div class="enterw"><button class="enter" type="submit"><span>ENTER <svg class="ic" viewBox="0 0 24 24"><path d="M4 12h15M13 6l6 6-6 6"></path></svg></span></button></div>
       </form>
@@ -222,27 +222,108 @@ function setP(p){prog=Math.max(0,Math.min(1,p));cover.style.setProperty('--p',pr
 cover.onpointerdown=e=>{if(opened||e.target.closest('#hint'))return;sy=e.clientY;moved=false;cover.classList.remove('rel');cover.setPointerCapture(e.pointerId);login.classList.add('on');cover.style.cursor='grabbing'};
 cover.onpointermove=e=>{if(sy==null)return;moved=true;setP((sy-e.clientY)/(innerHeight*.5))};
 cover.onpointerup=cover.onpointercancel=()=>{if(sy==null)return;sy=null;cover.style.cursor='';cover.classList.add('rel');if(prog>.25)openLogin();else{setP(0);login.classList.remove('on')}};
-function openLogin(){if(opened)return;opened=true;navigator.vibrate&&navigator.vibrate(30);mode='login';login.classList.add('on');cover.classList.add('rel');setP(1);warpTo3(1);setTimeout(()=>warpTo3(0),650);setTimeout(()=>{cover.classList.add('gone');$('#tname').focus({preventScroll:true})},850)}
+function openLogin(){if(opened)return;opened=true;navigator.vibrate&&navigator.vibrate(30);mode='login';login.classList.add('on');cover.classList.add('rel');setP(1);warpTo3(1);setTimeout(()=>warpTo3(0),650);setTimeout(()=>{cover.classList.add('gone');$('#tid').focus({preventScroll:true})},850)}
 function backToCover(){opened=false;mode='cover';cover.classList.remove('gone');void cover.offsetWidth;cover.classList.add('rel');setP(0);setTimeout(()=>{if(!opened)login.classList.remove('on')},800)}
 $('#hint').onclick=openLogin;$('#back').onclick=backToCover;
 addEventListener('wheel',e=>{if(!opened&&mode==='cover'&&e.deltaY>20)openLogin();else if(opened&&mode==='login'&&scrollY===0&&e.deltaY<-40)backToCover()},{passive:true});
 addEventListener('keydown',e=>{if(!opened&&mode==='cover'&&['ArrowUp','ArrowDown','Enter',' '].includes(e.key)){e.preventDefault();openLogin()}});
 if(!RM&&matchMedia('(hover:hover)').matches)addEventListener('pointermove',e=>{const t=$('#title');t.style.setProperty('--ty',((e.clientX/innerWidth-.5)*16)+'deg');t.style.setProperty('--tx',(-(e.clientY/innerHeight-.5)*12)+'deg')});
 
-/* ===== login ===== */
+/* ===== login & database auth ===== */
 const fr=$('#frame');
 if(!RM&&matchMedia('(hover:hover)').matches){fr.onpointermove=e=>{const b=fr.getBoundingClientRect(),x=(e.clientX-b.left)/b.width-.5,y=(e.clientY-b.top)/b.height-.5;fr.style.transform=`perspective(1000px) rotateY(${x*6}deg) rotateX(${-y*6}deg)`};fr.onpointerleave=()=>fr.style.transform=''}
-$('#phone').oninput=e=>{e.target.value=e.target.value.replace(/[^\d+\-\s()]/g,'');e.target.removeAttribute('aria-invalid')};
-$('#tname').oninput=e=>e.target.removeAttribute('aria-invalid');
+$('#tid').oninput=e=>{e.target.removeAttribute('aria-invalid');$('#err').textContent=''};
+$('#pname').oninput=e=>{e.target.removeAttribute('aria-invalid');$('#err').textContent=''};
 function fail(msg,el){$('#err').textContent=msg;el.setAttribute('aria-invalid','true');el.focus();fr.classList.remove('shake');void fr.offsetWidth;fr.classList.add('shake')}
 async function warpTo(steps,done){const w=$('#warp'),fl=$('#flash');w.classList.add('on');$('#pbi').style.width='0';warpTo3(1);await wait(RM?0:500);
  for(const [i,s] of steps.entries()){$('#stx').textContent=s;$('#pbi').style.width=((i+1)/steps.length*100)+'%';await wait(RM?80:650)}
  fl.style.opacity=1;await wait(RM?0:350);done();warpTo3(0);scrollTo(0,0);w.classList.remove('on');fl.style.opacity=0}
-$('#f').onsubmit=async e=>{e.preventDefault();const n=$('#tname').value.trim(),d=$('#phone').value.replace(/\D/g,'');
- if(n.length<2)return fail('Enter your team name (at least 2 characters).',$('#tname'));
- if(d.length<7||d.length>15)return fail('Enter a valid phone number (7 to 15 digits).',$('#phone'));
+
+function getDatabaseTeams(){
+ try{
+  const raw=localStorage.getItem('nexus_teams_v2');
+  if(raw){const p=JSON.parse(raw);if(Array.isArray(p)&&p.length>0)return p}
+ }catch(e){}
+ return[
+  {id:'team-1',teamCode:'NX-T1',name:'Alpha Crew',assignedRoomId:'room-1',assignedRoomName:'Cafeteria',assignedZone:'Zone A',members:['Alice','Bob']},
+  {id:'team-2',teamCode:'NX-T2',name:'Beta Impostors',assignedRoomId:'room-2',assignedRoomName:'MedBay',assignedZone:'Zone B',members:['Charlie','Dave']},
+  {id:'team-3',teamCode:'NX-T3',name:'Gamma Detectives',assignedRoomId:'room-3',assignedRoomName:'Electrical',assignedZone:'Zone C',members:['Eve','Frank']},
+  {id:'team-4',teamCode:'NX-T4',name:'Delta Voyagers',assignedRoomId:'room-4',assignedRoomName:'Navigation',assignedZone:'Zone D',members:['Grace','Heidi']},
+  {id:'team-5',teamCode:'NX-T5',name:'Omega Saboteurs',assignedRoomId:'room-5',assignedRoomName:'Reactor',assignedZone:'Zone E',members:['Ivan','Judy']}
+ ];
+}
+
+function getDatabaseRooms(){
+ try{
+  const raw=localStorage.getItem('nexus_rooms_v2');
+  if(raw){const p=JSON.parse(raw);if(Array.isArray(p)&&p.length>0)return p}
+ }catch(e){}
+ return[
+  {id:'room-1',name:'Cafeteria',zone:'Zone A',pocName:'Sarah Jenkins',pocContact:'+91 98765 43210'},
+  {id:'room-2',name:'MedBay',zone:'Zone B',pocName:'Dr. Marcus Vance',pocContact:'+91 98765 43211'},
+  {id:'room-3',name:'Electrical',zone:'Zone C',pocName:'Elena Rostova',pocContact:'+91 98765 43212'},
+  {id:'room-4',name:'Navigation',zone:'Zone D',pocName:'Captain James Cole',pocContact:'+91 98765 43213'},
+  {id:'room-5',name:'Reactor',zone:'Zone E',pocName:'Chief Engineer Chen',pocContact:'+91 98765 43214'}
+ ];
+}
+
+$('#f').onsubmit=async e=>{
+ e.preventDefault();
+ const enteredId=$('#tid').value.trim();
+ const enteredPlayer=$('#pname').value.trim();
+ if(!enteredId)return fail('Enter your Team ID (e.g. NX-T1).',$('#tid'));
+
+ const teams=getDatabaseTeams();
+ const matchedTeam=teams.find(t=>
+  (t.teamCode&&t.teamCode.toUpperCase()===enteredId.toUpperCase())||
+  (t.id&&t.id.toLowerCase()===enteredId.toLowerCase())||
+  (t.name&&t.name.toLowerCase()===enteredId.toLowerCase())
+ );
+
+ if(!matchedTeam){
+  return fail('Invalid Team ID. Check with your event coordinator.', $('#tid'));
+ }
+
+ const rooms=getDatabaseRooms();
+ const matchedRoom=rooms.find(r=>r.id===matchedTeam.assignedRoomId)||{
+  name:matchedTeam.assignedRoomName||'Unassigned',
+  zone:matchedTeam.assignedZone||'Pending',
+  pocName:'Event Coordinator',
+  pocContact:'Help Desk'
+ };
+
+ const session={
+  team:matchedTeam,
+  room:matchedRoom,
+  playerName:enteredPlayer||'Crewmate',
+  loggedInAt:new Date().toISOString()
+ };
+
+ localStorage.setItem('nexus_player_session',JSON.stringify(session));
+
+ try{
+  const rawLogs=localStorage.getItem('nexus_activity_logs_v2');
+  const logs=rawLogs?JSON.parse(rawLogs):[];
+  logs.unshift({
+   id:'log-'+Date.now(),
+   timestamp:new Date().toISOString(),
+   type:'login',
+   message:'Team '+matchedTeam.name+' ('+(matchedTeam.teamCode||matchedTeam.id)+') logged in. Role: '+(matchedTeam.isImpostor?'IMPOSTOR':'CREWMATE')+' in '+matchedRoom.name+'.',
+   teamId:matchedTeam.teamCode||matchedTeam.id,
+   teamName:matchedTeam.name,
+   roomName:matchedRoom.name,
+   severity:matchedTeam.isImpostor?'warning':'info'
+  });
+  localStorage.setItem('nexus_activity_logs_v2',JSON.stringify(logs.slice(0,500)));
+ }catch(e){}
+
  $('#err').textContent='';
- await warpTo(['Verifying team…','Checking phone number…','Entering the ship…'],()=>{$('#wName').textContent='Welcome aboard, '+n;$('#wPhone').textContent='Phone ending '+d.slice(-4);draw();mode='lobby';login.classList.remove('on');$('#lobby').classList.add('on')})};
+
+ const warpSteps=['Verifying Team ID…','Authenticating player clearance…',matchedTeam.isImpostor?'ALERT: IMPOSTOR ACCESS DETECTED…':'CREWMATE CLEARANCE CONFIRMED…','Entering player terminal…'];
+ await warpTo(warpSteps,()=>{
+  window.location.href='player.html';
+ });
+};
 /* ===== lobby ===== */
 const esc=s=>s.replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
 function draw(){$('#wCount').textContent=members.length+(members.length===1?' crewmate':' crewmates');

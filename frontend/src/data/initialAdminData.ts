@@ -67,6 +67,7 @@ export const INITIAL_ADMIN_TEAMS: Team[] = [
   {
     id: 'team-1',
     name: 'Team 1',
+    teamCode: 'NX-T1',
     members: ['Devansh Joshi', 'Pooja Iyer', 'Aditya Nair', 'Tanya Roy'],
     memberDetails: [
       { id: 'm-1-1', name: 'Devansh Joshi', regNo: '23930101', phone: '+91 98333 44556', assignedRoomId: 'room-1', assignedRoomName: 'Room 1', assignedZone: 'Zone A' },
@@ -82,6 +83,7 @@ export const INITIAL_ADMIN_TEAMS: Team[] = [
   {
     id: 'team-2',
     name: 'Team 2',
+    teamCode: 'NX-T2',
     members: ['Aarav Sharma', 'Rohan Mehta', 'Sneha Kapoor', 'Divya Patel'],
     memberDetails: [
       { id: 'm-2-1', name: 'Aarav Sharma', regNo: '23930201', phone: '+91 98111 22334', assignedRoomId: 'room-2', assignedRoomName: 'Room 2', assignedZone: 'Zone A' },
@@ -97,6 +99,7 @@ export const INITIAL_ADMIN_TEAMS: Team[] = [
   {
     id: 'team-3',
     name: 'Team 3',
+    teamCode: 'NX-T3',
     members: ['Zoya Khan', 'Kabir Verma', 'Ananya Singh', 'Farhan Akhtar'],
     memberDetails: [
       { id: 'm-3-1', name: 'Zoya Khan', regNo: '23930301', phone: '+91 98222 33445', assignedRoomId: 'room-3', assignedRoomName: 'Room 3', assignedZone: 'Zone B' },
@@ -112,6 +115,7 @@ export const INITIAL_ADMIN_TEAMS: Team[] = [
   {
     id: 'team-4',
     name: 'Team 4',
+    teamCode: 'NX-T4',
     members: ['Arjun Das', 'Simran Kaur', 'Nikhil Rao', 'Priya Bhatia'],
     memberDetails: [
       { id: 'm-4-1', name: 'Arjun Das', regNo: '23930401', phone: '+91 98555 66778' },
@@ -124,6 +128,7 @@ export const INITIAL_ADMIN_TEAMS: Team[] = [
   {
     id: 'team-5',
     name: 'Team 5',
+    teamCode: 'NX-T5',
     members: ['Meera Deshmukh', 'Karan Malhotra', 'Gauri Sen', 'Vikram Batra'],
     memberDetails: [
       { id: 'm-5-1', name: 'Meera Deshmukh', regNo: '23930501', phone: '+91 98444 55667' },

@@ -1,8 +1,66 @@
-import { Team, RoomRecord, PlayerMember } from '../types';
+import { Team, RoomRecord, PlayerMember, AdminUser, ActivityLogItem } from '../types';
 import { INITIAL_ADMIN_TEAMS, INITIAL_ROOMS } from '../data/initialAdminData';
 
 const ROOMS_STORAGE_KEY = 'nexus_rooms_v2';
 const TEAMS_STORAGE_KEY = 'nexus_teams_v2';
+const STAFF_STORAGE_KEY = 'nexus_admin_staff_v2';
+const LOGS_STORAGE_KEY = 'nexus_activity_logs_v2';
+
+const INITIAL_ACTIVITY_LOGS: ActivityLogItem[] = [
+  {
+    id: 'log-1',
+    timestamp: new Date(Date.now() - 3600000).toISOString(),
+    type: 'system',
+    message: 'System initialized. 6 Sector Rooms and 5 Teams active.',
+    severity: 'info',
+  },
+  {
+    id: 'log-2',
+    timestamp: new Date(Date.now() - 1800000).toISOString(),
+    type: 'impostor_assign',
+    message: 'Team 2 (NX-T2) designated as covert IMPOSTOR in Room 2 (Zone A).',
+    teamId: 'NX-T2',
+    teamName: 'Team 2',
+    roomName: 'Room 2',
+    severity: 'danger',
+  },
+];
+
+
+const INITIAL_STAFF_USERS: AdminUser[] = [
+  {
+    id: 'NX-SUPER-01',
+    facilitatorId: 'NX-SUPER-01',
+    username: 'NX-SUPER-01',
+    name: 'Tejas Narula',
+    title: 'Lead Operations Facilitator (Master Admin)',
+    role: 'super_admin',
+    email: 'tejas@nexus.org',
+    password: 'master2026',
+  },
+  {
+    id: 'NX-ADMIN-02',
+    facilitatorId: 'NX-ADMIN-02',
+    username: 'NX-ADMIN-02',
+    name: 'Aarav Sharma',
+    title: 'Station Operations Admin',
+    role: 'admin',
+    email: 'aarav@nexus.org',
+    password: 'admin2026',
+  },
+  {
+    id: 'NX-POC-03',
+    facilitatorId: 'NX-POC-03',
+    username: 'NX-POC-03',
+    name: 'Zoya Khan',
+    title: 'Field Moderator & Sector POC',
+    role: 'moderator',
+    email: 'zoya@nexus.org',
+    pocRoom: 'Reactor',
+    password: 'poc2026',
+  },
+];
+
 
 // Cryptographically secure ID generator
 function generateId(prefix: string): string {
@@ -158,9 +216,10 @@ export const AllocationDatabase = {
       if (stored) {
         const parsed: Team[] = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Normalize memberDetails
-          return parsed.map(t => ({
+          // Normalize memberDetails and ensure teamCode
+          return parsed.map((t, idx) => ({
             ...t,
+            teamCode: t.teamCode || `NX-T${idx + 1}`,
             memberDetails: normalizeTeamMembers(t),
           }));
         }
@@ -169,8 +228,9 @@ export const AllocationDatabase = {
       console.warn('Failed to parse stored teams from localStorage', e);
     }
     // Initialize with default teams
-    const initialized = INITIAL_ADMIN_TEAMS.map(t => ({
+    const initialized = INITIAL_ADMIN_TEAMS.map((t, idx) => ({
       ...t,
+      teamCode: t.teamCode || `NX-T${idx + 1}`,
       memberDetails: normalizeTeamMembers(t),
     }));
     localStorage.setItem(TEAMS_STORAGE_KEY, JSON.stringify(initialized));
@@ -196,6 +256,7 @@ export const AllocationDatabase = {
   }): Team {
     const teams = this.getTeams();
     const teamId = generateId('team');
+    const teamCode = `NX-T${teams.length + 1}`;
 
     let members: PlayerMember[] = [];
     if (teamData.playerList && teamData.playerList.length > 0) {
@@ -219,6 +280,7 @@ export const AllocationDatabase = {
 
     const newTeam: Team = {
       id: teamId,
+      teamCode,
       name: teamData.name.trim(),
       leaderName: teamData.leaderName?.trim(),
       phone: teamData.phone?.trim() || '',
@@ -464,6 +526,244 @@ export const AllocationDatabase = {
     });
     this.saveTeams(updated);
     return updated;
+  },
+
+  // -------------------------------------------------------------
+  // STAFF & USER MANAGEMENT (MASTER ADMIN, SUB-ADMIN, MODERATOR)
+  // -------------------------------------------------------------
+  getStaffUsers(): AdminUser[] {
+    try {
+      const stored = localStorage.getItem(STAFF_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to parse staff users from localStorage', e);
+    }
+    try {
+      localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(INITIAL_STAFF_USERS));
+    } catch (e) {}
+    return INITIAL_STAFF_USERS;
+  },
+
+  saveStaffUsers(users: AdminUser[]): void {
+    try {
+      localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(users));
+    } catch (e) {
+      console.error('Failed to save staff users to localStorage', e);
+    }
+  },
+
+  createStaffUser(user: Omit<AdminUser, 'id'>): AdminUser {
+    const users = this.getStaffUsers();
+    const newUser: AdminUser = {
+      ...user,
+      id: generateId('staff'),
+      facilitatorId: user.facilitatorId || user.username,
+    };
+    const updated = [...users, newUser];
+    this.saveStaffUsers(updated);
+    return newUser;
+  },
+
+  updateStaffUser(id: string, updates: Partial<AdminUser>): AdminUser[] {
+    const users = this.getStaffUsers();
+    const updated = users.map(u => (u.id === id ? { ...u, ...updates } : u));
+    this.saveStaffUsers(updated);
+    return updated;
+  },
+
+  deleteStaffUser(id: string): AdminUser[] {
+    const users = this.getStaffUsers();
+    // Protect primary master admin from deletion
+    const target = users.find(u => u.id === id);
+    if (target && target.role === 'super_admin' && target.id === 'NX-SUPER-01') {
+      return users;
+    }
+    const updated = users.filter(u => u.id !== id);
+    this.saveStaffUsers(updated);
+    return updated;
+  },
+
+  // -------------------------------------------------------------
+  // IMPOSTOR SELECTION & ROLE OVERRIDES PER ROOM
+  // -------------------------------------------------------------
+  setTeamImpostor(teamId: string, isImpostor: boolean): Team[] {
+    const teams = this.getTeams();
+    const updated = teams.map(t => (t.id === teamId ? { ...t, isImpostor } : t));
+    this.saveTeams(updated);
+
+    const target = updated.find(t => t.id === teamId);
+    if (target) {
+      this.addLog({
+        type: 'impostor_assign',
+        message: isImpostor
+          ? `Team ${target.name} (${target.teamCode || target.id}) set as IMPOSTOR in ${target.assignedRoomName || 'unassigned'}.`
+          : `Team ${target.name} (${target.teamCode || target.id}) set as CREWMATE.`,
+        teamId: target.teamCode || target.id,
+        teamName: target.name,
+        roomName: target.assignedRoomName,
+        severity: isImpostor ? 'danger' : 'info',
+      });
+    }
+
+    return updated;
+  },
+
+  setRoomImpostor(roomId: string, targetTeamId: string | null): Team[] {
+    const teams = this.getTeams();
+    const rooms = this.getRooms();
+    const room = rooms.find(r => r.id === roomId);
+
+    const updated = teams.map(t => {
+      if (t.assignedRoomId === roomId) {
+        return {
+          ...t,
+          isImpostor: targetTeamId ? t.id === targetTeamId : false,
+        };
+      }
+      return t;
+    });
+
+    this.saveTeams(updated);
+
+    if (targetTeamId) {
+      const chosen = updated.find(t => t.id === targetTeamId);
+      if (chosen) {
+        this.addLog({
+          type: 'impostor_assign',
+          message: `Admin override in ${room?.name || roomId}: Team ${chosen.name} (${chosen.teamCode || chosen.id}) set as IMPOSTOR.`,
+          teamId: chosen.teamCode || chosen.id,
+          teamName: chosen.name,
+          roomName: room?.name,
+          severity: 'danger',
+        });
+      }
+    } else {
+      this.addLog({
+        type: 'impostor_assign',
+        message: `All teams in ${room?.name || roomId} reset to CREWMATE.`,
+        roomName: room?.name,
+        severity: 'info',
+      });
+    }
+
+    return updated;
+  },
+
+  rollRandomImpostorInRoom(roomId: string): { updatedTeams: Team[]; selectedTeam: Team | null } {
+    const teams = this.getTeams();
+    const rooms = this.getRooms();
+    const room = rooms.find(r => r.id === roomId);
+    const roomTeams = teams.filter(t => t.assignedRoomId === roomId);
+
+    if (roomTeams.length === 0) {
+      return { updatedTeams: teams, selectedTeam: null };
+    }
+
+    // Cryptographically secure random selection
+    let randomIndex = 0;
+    if (typeof window !== 'undefined' && window.crypto) {
+      const array = new Uint32Array(1);
+      window.crypto.getRandomValues(array);
+      randomIndex = array[0] % roomTeams.length;
+    } else {
+      randomIndex = Math.floor(Math.random() * roomTeams.length);
+    }
+
+    const chosen = roomTeams[randomIndex];
+
+    const updated = teams.map(t => {
+      if (t.assignedRoomId === roomId) {
+        return {
+          ...t,
+          isImpostor: t.id === chosen.id,
+        };
+      }
+      return t;
+    });
+
+    this.saveTeams(updated);
+
+    this.addLog({
+      type: 'impostor_assign',
+      message: `🎲 Random Impostor roll in ${room?.name || roomId}: Team ${chosen.name} (${chosen.teamCode || chosen.id}) chosen as IMPOSTOR out of ${roomTeams.length} teams.`,
+      teamId: chosen.teamCode || chosen.id,
+      teamName: chosen.name,
+      roomName: room?.name,
+      severity: 'danger',
+    });
+
+    return { updatedTeams: updated, selectedTeam: chosen };
+  },
+
+  // -------------------------------------------------------------
+  // IMPOSTOR POWERS & PLAYER ACTIONS
+  // -------------------------------------------------------------
+  useImpostorPower(teamId: string, powerName: string, details?: string): ActivityLogItem {
+    const teams = this.getTeams();
+    const team = teams.find(t => t.id === teamId || t.teamCode?.toLowerCase() === teamId.toLowerCase());
+
+    const logEntry = this.addLog({
+      type: 'power',
+      message: `⚡ IMPOSTOR POWER: ${team?.name || teamId} activated ${powerName}${details ? ` (${details})` : ''} in ${team?.assignedRoomName || 'assigned room'}!`,
+      teamId: team?.teamCode || team?.id,
+      teamName: team?.name || teamId,
+      roomName: team?.assignedRoomName,
+      powerName: powerName,
+      severity: 'danger',
+    });
+
+    return logEntry;
+  },
+
+  // -------------------------------------------------------------
+  // ACTIVITY & AUDIT LOGS
+  // -------------------------------------------------------------
+  getLogs(): ActivityLogItem[] {
+    try {
+      const stored = localStorage.getItem(LOGS_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to parse logs from localStorage', e);
+    }
+    try {
+      localStorage.setItem(LOGS_STORAGE_KEY, JSON.stringify(INITIAL_ACTIVITY_LOGS));
+    } catch (e) {}
+    return INITIAL_ACTIVITY_LOGS;
+  },
+
+  saveLogs(logs: ActivityLogItem[]): void {
+    try {
+      localStorage.setItem(LOGS_STORAGE_KEY, JSON.stringify(logs));
+    } catch (e) {
+      console.error('Failed to save logs to localStorage', e);
+    }
+  },
+
+  addLog(entry: Omit<ActivityLogItem, 'id' | 'timestamp'> & { timestamp?: string }): ActivityLogItem {
+    const logs = this.getLogs();
+    const newLog: ActivityLogItem = {
+      ...entry,
+      id: generateId('log'),
+      timestamp: entry.timestamp || new Date().toISOString(),
+    };
+    // Keep last 500 logs
+    const updated = [newLog, ...logs].slice(0, 500);
+    this.saveLogs(updated);
+    return newLog;
+  },
+
+  clearLogs(): void {
+    this.saveLogs([]);
   },
 };
 

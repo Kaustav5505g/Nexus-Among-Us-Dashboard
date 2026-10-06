@@ -30,6 +30,7 @@ export interface PlayerMember {
 export interface Team {
   id: string;
   name: string;
+  teamCode?: string; // Player Login Code / Team ID
   leaderName?: string;
   email?: string;
   phone?: string;
@@ -144,9 +145,13 @@ export interface MysteryClue {
 export interface ActivityLogItem {
   id: string;
   timestamp: string;
-  type: 'task' | 'sabotage' | 'emergency' | 'clue' | 'kill' | 'system';
+  type: 'task' | 'sabotage' | 'emergency' | 'clue' | 'kill' | 'system' | 'power' | 'impostor_assign' | 'login';
   message: string;
   teamName?: string;
+  teamId?: string;
+  roomId?: string;
+  roomName?: string;
+  powerName?: string;
   severity?: 'info' | 'warning' | 'danger' | 'success';
 }
 
