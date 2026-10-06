@@ -13,13 +13,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 ## [Unreleased]
+
+### Changed
+- **Modern Crisp Black & White Interface (Zero Paper Texture)**: Replaced retro paper textures and newsprint artifacts with a sleek, modern, flat black-and-white interface (`#ffffff` surfaces, pure `#000000` text/buttons, clean border dividers, and subtle rounded corners).
+- **Removed Demo Logins**: Eliminated all pre-filled demo logins, demo helper buttons, and credentials hints. Login inputs now start completely blank for real event authentication.
+- **Ultra-Simplified Zero-Bloat Admin Workflow**: Rebuilt the interface into a completely intuitive 3-step controller (`1. Room Allocation`, `2. Teams & Players`, `3. Rooms & POCs`) with clean button labels and zero unnecessary menus or modals.
+- **Among Us Individual Player Architecture**: Restructured teams to treat all members as equal individual persons/crewmates (no hierarchical leader requirements). Teams can be created with a simple list of participants and easily allocated to rooms.
+- **Editable Rooms, Zones & POCs**: Added ability to define and edit room names (e.g. `Room 1`, `Room 2`, `Lab 102`), assign campus zones, capacity limits, and assign Points of Contact (POCs) with direct phone contacts.
+- **Interactive Room Allocation Matrix**: Added visual room allocation board with 1-click team assignment, smart round-robin auto-allotment across rooms, unassign controls, and instant CSV roster export.
+- **Streamlined Application Entrypoint**: Simplified `App.tsx` routing so the Admin Operations Deck is rendered directly on root (`/`), `/admin`, and `/dashboard`.
+
+### Removed
+- **Marketing Homepage**: Removed the 1200-line broadsheet marketing homepage and promotional widgets from `App.tsx`.
+- **Mobile Player Mission Deck**: Removed `PlayerMission.tsx` and all `/play` routes.
+- **Docker Infrastructure**: Removed `docker-compose.yml`, `backend/Dockerfile`, and `frontend/Dockerfile`.
+- **Dependabot Configuration**: Removed `.github/dependabot.yml`.
+- **Legacy Admin Clutter**: Purged obsolete game engines, sabotages, emergency meetings, and task simulation clutter from the admin interface.
+
 ### Security
 - **CodeQL Alert #4 & #5 (Insecure Randomness / CWE-338)**: Replaced pseudo-random `Math.random()` in `AmongUsAdmin.tsx` and `gameDatabase.ts` with cryptographically secure `window.crypto.getRandomValues()` for covert role allotment, sector shuffling, and badge code generation.
 - **CodeQL Alert #6 (Clear-Text Storage of Sensitive Information)**: Sanitized admin user records in `gameDatabase.ts` prior to caching in `localStorage` to strip credentials, and removed clear-text password fields from default fallback profiles.
 - **CodeQL Alert #2 (Missing Rate Limiting)**: Integrated `express-rate-limit` on the forensic clue verification endpoint (`/api/mystery/verify`) to safeguard against brute-force attacks.
 - **CodeQL Alert #1 (Permissive CORS Configuration)**: Replaced wildcard `*` with strict origin validation in backend `index.ts` across Express HTTP and Socket.IO servers.
 - **CodeQL Alert #7 & #8 (Workflow Permissions)**: Added top-level `permissions: contents: read` blocks across all GitHub Actions workflows (`ci.yml` and `security.yml`).
-- **Dependabot PR Lockdown**: Set `open-pull-requests-limit: 0` in `.github/dependabot.yml` and closed 14 automated PRs to protect frontend/backend framework stability 48h before the festival kickoff.
 
 ---
 

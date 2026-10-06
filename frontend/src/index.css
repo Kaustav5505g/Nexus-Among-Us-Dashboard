@@ -4,17 +4,17 @@
 
 @layer base {
   body {
-    background-color: #f6f4ee;
-    color: #111111;
-    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: #ffffff;
+    color: #000000;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
   }
 
   ::selection {
-    background-color: #111111;
-    color: #f6f4ee;
+    background-color: #000000;
+    color: #ffffff;
   }
 }
 

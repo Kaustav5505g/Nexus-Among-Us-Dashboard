@@ -1,4 +1,10 @@
 export type RoomType =
+  | 'Room 1'
+  | 'Room 2'
+  | 'Room 3'
+  | 'Room 4'
+  | 'Room 5'
+  | 'Room 6'
   | 'Electrical'
   | 'Reactor'
   | 'MedBay'
@@ -7,11 +13,59 @@ export type RoomType =
   | 'Weapons'
   | 'O2'
   | 'Cafeteria'
-  | 'Communications';
+  | 'Communications'
+  | string;
+
+export interface PlayerMember {
+  id: string;
+  name: string;
+  regNo?: string;
+  phone?: string;
+  email?: string;
+  assignedRoomId?: string;
+  assignedRoomName?: string;
+  assignedZone?: string;
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  leaderName?: string;
+  email?: string;
+  phone?: string;
+  members: string[] | PlayerMember[];
+  memberDetails?: PlayerMember[];
+  color?: string;
+  score?: number;
+  tasksCompleted?: number;
+  cluesSolved?: number;
+  status?: 'active' | 'eliminated' | 'winner';
+  registeredEvents?: string[];
+  badgeCode?: string;
+  assignedRoom?: RoomType;
+  assignedRoomId?: string;
+  assignedRoomName?: string;
+  assignedZone?: string;
+  isImpostor?: boolean;
+  impostorPlayerName?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface RoomRecord {
+  id: string;
+  name: string; // e.g. "Room 1", "Room 2", editable by admin
+  zone: string; // e.g. "Zone A", "AB1 1st Floor", "Main Audi"
+  capacity: number; // max players
+  pocName: string; // Point of Contact name
+  pocContact: string; // Phone / WhatsApp
+  pocEmail?: string;
+  notes?: string;
+}
 
 export type SabotageType = 'reactor' | 'oxygen' | 'lights' | 'comms' | null;
 
-export type AdminRole = 'super_admin' | 'admin' | 'moderator'; // moderator = Point of Contact (POC)
+export type AdminRole = 'super_admin' | 'admin' | 'moderator';
 
 export interface RolePermissions {
   levelName: string;
@@ -37,29 +91,9 @@ export interface AdminUser {
   name: string;
   email: string;
   role: AdminRole;
-  pocRoom?: RoomType; // If assigned as room POC
+  pocRoom?: string;
   title?: string;
   password?: string;
-}
-
-export interface Team {
-  id: string;
-  name: string;
-  leaderName: string;
-  email: string;
-  phone: string;
-  members: string[];
-  color: string;
-  score: number;
-  tasksCompleted: number;
-  cluesSolved: number;
-  status: 'active' | 'eliminated' | 'winner';
-  registeredEvents: string[];
-  badgeCode: string;
-  assignedRoom?: RoomType;
-  isImpostor?: boolean;
-  impostorPlayerName?: string;
-  createdAt: string;
 }
 
 export interface StationTask {
