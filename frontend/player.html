@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nexus Among Us • Player Terminal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #000000;
+      --card-bg: #0a0a0a;
+      --card-sub: #111113;
+      --border: #27272a;
+      --border-light: #3f3f46;
+      --text-main: #ffffff;
+      --text-muted: #a1a1aa;
+      --text-dim: #71717a;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      line-height: 1.5;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 660px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 16px;
+    }
+
+    .brand {
+      font-family: 'Chakra Petch', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .status-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      padding: 4px 10px;
+      border: 1px solid var(--border-light);
+      background: #18181b;
+      color: #fafafa;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .main-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      padding: 32px 28px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+      border-radius: 4px;
+    }
+
+    .dev-badge {
+      display: inline-block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      color: var(--text-muted);
+      border: 1px dashed var(--border-light);
+      padding: 6px 14px;
+      text-transform: uppercase;
+    }
+
+    .main-title {
+      font-family: 'Chakra Petch', sans-serif;
+      font-size: clamp(24px, 4.5vw, 36px);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-main);
+      line-height: 1.2;
+    }
+
+    .main-desc {
+      color: var(--text-muted);
+      font-size: 13px;
+      max-width: 520px;
+      line-height: 1.6;
+    }
+
+    /* Role Alert Banner */
+    .role-banner {
+      width: 100%;
+      padding: 16px;
+      border: 1px solid var(--border);
+      background: #0d0d10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      text-align: center;
+    }
+
+    .role-tag {
+      font-family: 'Chakra Petch', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      padding: 4px 14px;
+      text-transform: uppercase;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .role-impostor {
+      background: #ffffff;
+      color: #000000;
+      border: 1px solid #ffffff;
+    }
+
+    .role-crewmate {
+      background: transparent;
+      color: #ffffff;
+      border: 1px solid var(--border-light);
+    }
+
+    .role-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      max-width: 460px;
+    }
+
+    /* Powers & Action Buttons */
+    .powers-section {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: var(--card-sub);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      text-align: left;
+    }
+
+    .powers-header {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .powers-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .port-card {
+      background: #111113;
+      border: 1px solid var(--border);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      text-align: left;
+      border-radius: 4px;
+      transition: border-color 0.15s;
+    }
+
+    .port-card.ready {
+      border-color: #3f3f46;
+    }
+
+    .port-card.ready:hover {
+      border-color: #ffffff;
+    }
+
+    .port-card.paused {
+      background: #18181b;
+      opacity: 0.75;
+      border-style: dashed;
+    }
+
+    .port-top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .port-index-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 700;
+      background: #ffffff;
+      color: #000000;
+      padding: 2px 7px;
+      letter-spacing: 0.05em;
+    }
+
+    .port-status-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border: 1px solid var(--border-light);
+      text-transform: uppercase;
+    }
+
+    .port-status-tag.tag-ready {
+      border-color: #ffffff;
+      background: #ffffff;
+      color: #000000;
+    }
+
+    .port-status-tag.tag-paused {
+      border-color: #71717a;
+      background: #27272a;
+      color: #fafafa;
+    }
+
+    .port-status-tag.tag-cooldown {
+      border-color: #52525b;
+      background: transparent;
+      color: #a1a1aa;
+    }
+
+    .port-title {
+      font-family: 'Chakra Petch', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .port-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .port-bottom-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 6px;
+      border-top: 1px solid #27272a;
+    }
+
+    .port-meta {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    .btn-port-action {
+      font-family: 'Chakra Petch', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 8px 14px;
+      cursor: pointer;
+      background: #ffffff;
+      color: #000000;
+      border: 1px solid #ffffff;
+      transition: background 0.15s, opacity 0.15s;
+    }
+
+    .btn-port-action:hover:not(:disabled) {
+      background: #e4e4e7;
+    }
+
+    .btn-port-action:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      background: #27272a;
+      color: #a1a1aa;
+      border-color: #3f3f46;
+    }
+
+    /* Modal Overlay */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .modal-card {
+      background: #0a0a0a;
+      border: 1px solid #3f3f46;
+      width: 100%;
+      max-width: 440px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      border-radius: 4px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.9);
+      text-align: left;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #27272a;
+      padding-bottom: 12px;
+    }
+
+    .modal-title {
+      font-family: 'Chakra Petch', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #ffffff;
+    }
+
+    .modal-close-btn {
+      background: transparent;
+      border: none;
+      color: #71717a;
+      font-size: 22px;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .modal-close-btn:hover {
+      color: #ffffff;
+    }
+
+    .modal-body {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .modal-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .modal-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .modal-select {
+      width: 100%;
+      background: #18181b;
+      border: 1px solid #3f3f46;
+      color: #ffffff;
+      padding: 10px;
+      font-size: 13px;
+      font-family: 'Inter', sans-serif;
+      outline: none;
+    }
+
+    .modal-select:focus {
+      border-color: #ffffff;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      border-top: 1px solid #27272a;
+      padding-top: 14px;
+    }
+
+    .btn-strike {
+      background: #ffffff;
+      color: #000000;
+      border: 1px solid #ffffff;
+    }
+
+    .btn-strike:hover:not(:disabled) {
+      background: #e4e4e7;
+    }
+
+    /* Hostile Effect Banner for targeted Crewmates */
+    .effect-alert-box {
+      width: 100%;
+      background: #18181b;
+      border: 2px solid #ffffff;
+      padding: 16px;
+      text-align: left;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      border-radius: 4px;
+      animation: alertPulse 1.8s infinite ease-in-out;
+    }
+
+    @keyframes alertPulse {
+      0%, 100% { border-color: #ffffff; }
+      50% { border-color: #52525b; }
+    }
+
+    .effect-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 700;
+      background: #ffffff;
+      color: #000000;
+      padding: 2px 8px;
+      width: fit-content;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .effect-title {
+      font-family: 'Chakra Petch', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      color: #ffffff;
+      text-transform: uppercase;
+    }
+
+    .effect-desc {
+      font-size: 12px;
+      color: #d4d4d8;
+      line-height: 1.4;
+    }
+
+    .effect-timer {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-top: 4px;
+    }
+
+    .power-btn {
+      background: #18181b;
+      border: 1px solid var(--border-light);
+      color: #ffffff;
+      padding: 12px;
+      cursor: pointer;
+      text-align: left;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      transition: background 0.15s, border-color 0.15s;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .power-btn:hover:not(:disabled) {
+      border-color: #ffffff;
+      background: #27272a;
+    }
+
+    .power-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .power-btn-title {
+      font-family: 'Chakra Petch', sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .power-btn-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.3;
+    }
+
+    .toast-feedback {
+      width: 100%;
+      padding: 10px 14px;
+      background: #ffffff;
+      color: #000000;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      text-align: center;
+      display: none;
+    }
+
+    .team-info-box {
+      width: 100%;
+      background: var(--card-sub);
+      border: 1px solid var(--border);
+      padding: 18px;
+      text-align: left;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+    }
+
+    @media (max-width: 500px) {
+      .info-grid {
+        grid-template-columns: 1fr;
+      }
+      .main-card {
+        padding: 24px 16px;
+      }
+    }
+
+    .info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .info-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .info-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+      word-break: break-word;
+    }
+
+    .info-tag {
+      display: inline-block;
+      background: #ffffff;
+      color: #000000;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      font-size: 11px;
+      padding: 2px 8px;
+      width: fit-content;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+      margin-top: 4px;
+    }
+
+    .btn {
+      flex: 1;
+      font-family: 'Chakra Petch', sans-serif;
+      font-weight: 600;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 12px 16px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 0.15s, border-color 0.15s;
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+
+    .btn-outline:hover {
+      border-color: #ffffff;
+      color: #ffffff;
+    }
+
+    .footer-note {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-dim);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header-bar">
+      <div class="brand">Nexus • Among Us</div>
+      <div class="status-badge" id="connStatus">Session Active</div>
+    </div>
+
+    <div class="main-card">
+      <div class="dev-badge">Gameplay Terminal</div>
+
+      <h1 class="main-title">To be made by backend team</h1>
+
+      <p class="main-desc">
+        Your team credentials have been authenticated with the central database.
+        The full interactive multiplayer gameplay module and live game engine are under development by the backend team.
+      </p>
+
+      <!-- Dynamic Impostor / Crewmate Role Banner -->
+      <div class="role-banner" id="roleBanner">
+        <div class="role-tag" id="roleTag">Scanning Role...</div>
+        <div class="role-desc" id="roleDesc">Accessing central telemetry database...</div>
+      </div>
+
+      <!-- Active Hostile Effect Alert (for targeted Crewmates) -->
+      <div class="effect-alert-box" id="crewmateEffectAlert" style="display: none;">
+        <div class="effect-badge">⚠️ HOSTILE IMPOSTOR POWER ACTIVE</div>
+        <div class="effect-title" id="effectAlertTitle">Terminal Disrupted</div>
+        <div class="effect-desc" id="effectAlertDesc">An Impostor team in your room has struck your squad.</div>
+        <div class="effect-timer" id="effectAlertTimer">REMAINING DURATION: --s</div>
+      </div>
+
+      <!-- Action Toast Feedback -->
+      <div class="toast-feedback" id="actionToast"></div>
+
+      <!-- Interactive Powers / Action Console -->
+      <div class="powers-section" id="powersSection">
+        <div class="powers-header">
+          <span id="powersHeaderTitle">Team Action Telemetry</span>
+          <span id="cooldownNotice" style="color: #a1a1aa; font-weight: normal;">Ready</span>
+        </div>
+        <div class="powers-grid" id="powersGrid">
+          <!-- Populated by script based on Impostor vs Crewmate -->
+        </div>
+      </div>
+
+      <!-- Team Allocation Info -->
+      <div class="team-info-box" id="infoBox">
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="info-label">Assigned Team</span>
+            <span class="info-value" id="valTeamName">—</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Official Team ID</span>
+            <div><span class="info-tag" id="valTeamCode">—</span></div>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Allocated Room</span>
+            <span class="info-value" id="valRoomName">—</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Sector Zone</span>
+            <span class="info-value" id="valZone">—</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Coordinator / POC</span>
+            <span class="info-value" id="valPocName">—</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">POC Contact</span>
+            <span class="info-value" id="valPocContact">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-outline" id="btnLogout">Log Out</button>
+        <a href="index2.html" class="btn btn-outline">Portal Home</a>
+      </div>
+    </div>
+
+    <div class="footer-note">
+      Nexus Operations • System Authenticated
+    </div>
+  </div>
+
+  <!-- Targeting Modal for Impostor Power Strikes -->
+  <div class="modal-overlay" id="targetingModal" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <span class="modal-title" id="targetingModalTitle">⚡ Transmit Power Strike</span>
+        <button class="modal-close-btn" id="btnCloseTargetingModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc" id="targetingModalDesc">Select which Crewmate team in your room to target with this power.</p>
+        <div class="modal-form-group">
+          <label class="modal-label">Target Crewmate Team:</label>
+          <select class="modal-select" id="targetTeamSelect">
+            <!-- Populated dynamically with other teams in the same room -->
+          </select>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" id="btnCancelTargeting">Cancel</button>
+        <button class="btn btn-strike" id="btnConfirmTargeting">⚡ Confirm Strike</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      let currentSession = null;
+      let isImpostor = false;
+      let activeTeam = null;
+      let activeRoom = null;
+      let allTeamsCached = [];
+      let selectedPortForTargeting = null;
+
+      const DEFAULT_PORTS = [
+        { port: 1, id: 'sabotage-lights', name: 'Sabotage Lights', description: 'Kill sector power, plunging room into darkness.', cooldownSeconds: 30, durationSeconds: 20, status: 'ready', targetRequired: false },
+        { port: 2, id: 'terminal-freeze', name: 'Terminal Freeze', description: 'Freeze target crewmate team terminal for 30s.', cooldownSeconds: 45, durationSeconds: 30, status: 'ready', targetRequired: true },
+        { port: 3, id: 'comms-blackout', name: 'Comms Blackout', description: 'Disrupt radio signals and clue deciphering for target crewmates.', cooldownSeconds: 40, durationSeconds: 25, status: 'ready', targetRequired: true }
+      ];
+
+      function showToast(message) {
+        const toast = document.getElementById('actionToast');
+        toast.textContent = message;
+        toast.style.display = 'block';
+        setTimeout(() => {
+          toast.style.display = 'none';
+        }, 4000);
+      }
+
+      function logActivity(type, message, powerName, targetTeam) {
+        try {
+          const rawLogs = localStorage.getItem('nexus_activity_logs_v2');
+          const logs = rawLogs ? JSON.parse(rawLogs) : [];
+
+          logs.unshift({
+            id: 'log-' + Date.now(),
+            timestamp: new Date().toISOString(),
+            type: type,
+            message: message,
+            teamId: activeTeam?.teamCode || activeTeam?.id,
+            teamName: activeTeam?.name,
+            targetTeamId: targetTeam ? (targetTeam.teamCode || targetTeam.id) : undefined,
+            targetTeamName: targetTeam ? targetTeam.name : undefined,
+            roomName: activeRoom?.name || activeTeam?.assignedRoomName,
+            powerName: powerName,
+            severity: isImpostor ? 'danger' : 'info'
+          });
+
+          localStorage.setItem('nexus_activity_logs_v2', JSON.stringify(logs.slice(0, 500)));
+        } catch (e) {
+          console.error('Failed to save activity log', e);
+        }
+      }
+
+      function loadSession() {
+        const sessionRaw = localStorage.getItem('nexus_player_session');
+        if (!sessionRaw) {
+          document.getElementById('connStatus').textContent = 'No Active Session';
+          document.getElementById('roleTag').textContent = 'UNAUTHENTICATED';
+          document.getElementById('roleDesc').textContent = 'Please sign in with your official Team ID.';
+          document.getElementById('powersSection').style.display = 'none';
+          document.getElementById('infoBox').innerHTML = `
+            <div style="text-align: center; color: #a1a1aa; padding: 12px; font-size: 13px;">
+              No logged in team found. Please sign in with your official Team ID.
+            </div>
+          `;
+          return;
+        }
+
+        try {
+          currentSession = JSON.parse(sessionRaw);
+          let team = currentSession.team || {};
+          let room = currentSession.room || {};
+
+          // Sync with central database
+          try {
+            const teamsRaw = localStorage.getItem('nexus_teams_v2');
+            if (teamsRaw) {
+              allTeamsCached = JSON.parse(teamsRaw);
+              const freshTeam = allTeamsCached.find(t =>
+                t.id === team.id ||
+                (t.teamCode && t.teamCode.toUpperCase() === (team.teamCode || '').toUpperCase())
+              );
+              if (freshTeam) {
+                team = freshTeam;
+                currentSession.team = freshTeam;
+              }
+            }
+          } catch (e) {}
+
+          activeTeam = team;
+          activeRoom = room;
+          isImpostor = !!team.isImpostor;
+
+          document.getElementById('valTeamName').textContent = team.name || 'Crewmate Team';
+          document.getElementById('valTeamCode').textContent = team.teamCode || team.id || 'NX-T?';
+          document.getElementById('valRoomName').textContent = room.name || team.assignedRoomName || 'Unassigned';
+          document.getElementById('valZone').textContent = room.zone || team.assignedZone || 'Pending';
+          document.getElementById('valPocName').textContent = room.pocName || 'Event Coordinator';
+          document.getElementById('valPocContact').textContent = room.pocContact || 'Helpdesk';
+
+          renderRoleAndPowers();
+        } catch (err) {
+          console.error('Failed to parse player session', err);
+        }
+      }
+
+      function renderRoleAndPowers() {
+        const roleTag = document.getElementById('roleTag');
+        const roleDesc = document.getElementById('roleDesc');
+        const powersGrid = document.getElementById('powersGrid');
+        const powersHeaderTitle = document.getElementById('powersHeaderTitle');
+        const cooldownNotice = document.getElementById('cooldownNotice');
+        const crewmateAlert = document.getElementById('crewmateEffectAlert');
+
+        const now = Date.now();
+        const activeEffects = (activeTeam.activeEffects || []).filter(e => e.expiresAt > now);
+        activeTeam.activeEffects = activeEffects;
+
+        if (isImpostor) {
+          crewmateAlert.style.display = 'none';
+          roleTag.className = 'role-tag role-impostor';
+          roleTag.textContent = '⚡ ROLE: COVERT IMPOSTOR';
+          roleDesc.textContent = 'You are the covert Impostor team in ' + (activeRoom?.name || 'your assigned room') + '! Command your 3 power ports to strike crewmates and avoid discovery.';
+          powersHeaderTitle.textContent = 'Impostor Power Console (3 Ports)';
+          cooldownNotice.textContent = '3 Ports Active';
+
+          const ports = activeTeam.powerPorts && activeTeam.powerPorts.length === 3
+            ? activeTeam.powerPorts
+            : DEFAULT_PORTS;
+
+          powersGrid.innerHTML = '';
+
+          ports.forEach(port => {
+            const isPaused = port.status === 'paused';
+            const isDisabled = port.status === 'disabled';
+            const lastUsed = port.lastUsedAt ? new Date(port.lastUsedAt).getTime() : 0;
+            const elapsed = (now - lastUsed) / 1000;
+            const onCooldown = lastUsed > 0 && elapsed < port.cooldownSeconds;
+            const remainingCd = onCooldown ? Math.ceil(port.cooldownSeconds - elapsed) : 0;
+
+            let cardStatusClass = 'ready';
+            let statusLabel = 'READY';
+            let tagClass = 'tag-ready';
+            let canClick = true;
+            let actionBtnText = port.targetRequired ? '🎯 Target Crewmate' : '⚡ Activate In Room';
+
+            if (isPaused) {
+              cardStatusClass = 'paused';
+              statusLabel = 'PAUSED BY ADMIN';
+              tagClass = 'tag-paused';
+              canClick = false;
+              actionBtnText = '⏸️ Paused by Admin';
+            } else if (isDisabled) {
+              cardStatusClass = 'paused';
+              statusLabel = 'EMPTY PORT';
+              tagClass = 'tag-paused';
+              canClick = false;
+              actionBtnText = 'Unassigned';
+            } else if (onCooldown) {
+              cardStatusClass = '';
+              statusLabel = `COOLDOWN: ${remainingCd}s`;
+              tagClass = 'tag-cooldown';
+              canClick = false;
+              actionBtnText = `Recharging (${remainingCd}s)`;
+            }
+
+            const portCard = document.createElement('div');
+            portCard.className = `port-card ${cardStatusClass}`;
+            portCard.innerHTML = `
+              <div class="port-top-row">
+                <span class="port-index-badge">PORT ${port.port}</span>
+                <span class="port-status-tag ${tagClass}">${statusLabel}</span>
+              </div>
+              <div class="port-title">
+                <span>⚡ ${port.name}</span>
+              </div>
+              <div class="port-desc">${port.description || 'Station sabotage power.'}</div>
+              <div class="port-bottom-row">
+                <span class="port-meta">${port.targetRequired ? '🎯 Single Target' : '🌐 Room-Wide'} • CD: ${port.cooldownSeconds}s</span>
+                <button class="btn-port-action" ${!canClick ? 'disabled' : ''}>
+                  ${actionBtnText}
+                </button>
+              </div>
+            `;
+
+            if (canClick) {
+              portCard.querySelector('.btn-port-action').onclick = function() {
+                handleTriggerPower(port);
+              };
+            }
+
+            powersGrid.appendChild(portCard);
+          });
+        } else {
+          // CREWMATE VIEW
+          roleTag.className = 'role-tag role-crewmate';
+          roleTag.textContent = '🛡️ ROLE: CREWMATE';
+          roleDesc.textContent = 'You are a loyal Crewmate team in ' + (activeRoom?.name || 'your assigned room') + '! Complete station tasks, decipher clues, and detect the Impostor.';
+          powersHeaderTitle.textContent = 'Crewmate Operations';
+
+          // Check if affected by hostile powers
+          let terminalFrozen = false;
+          if (activeEffects.length > 0) {
+            const topEffect = activeEffects[0];
+            const remaining = Math.ceil((topEffect.expiresAt - now) / 1000);
+            crewmateAlert.style.display = 'flex';
+            document.getElementById('effectAlertTitle').textContent = `🚨 ${topEffect.powerName} Inflicted!`;
+            document.getElementById('effectAlertDesc').textContent = topEffect.description || `An Impostor in ${activeRoom?.name || 'your room'} has disrupted your terminal!`;
+            document.getElementById('effectAlertTimer').textContent = `ACTIVE FOR: ${remaining} SECONDS REMAINING`;
+
+            terminalFrozen = topEffect.powerName.toLowerCase().includes('freeze') || topEffect.powerName.toLowerCase().includes('blackout');
+            cooldownNotice.textContent = terminalFrozen ? '⚠️ ACTIONS BLOCKED' : 'Alert Active';
+          } else {
+            crewmateAlert.style.display = 'none';
+            cooldownNotice.textContent = 'Ready';
+          }
+
+          powersGrid.innerHTML = `
+            <button class="power-btn" data-action="Report Suspicion" ${terminalFrozen ? 'disabled' : ''}>
+              <span class="power-btn-title">🚨 Report Suspicion</span>
+              <span class="power-btn-desc">Signal coordinator for emergency sector discussion</span>
+            </button>
+            <button class="power-btn" data-action="Submit Clue Progress" ${terminalFrozen ? 'disabled' : ''}>
+              <span class="power-btn-title">🔍 Submit Clue Decipher</span>
+              <span class="power-btn-desc">Transmit solved forensic clue to room facilitator</span>
+            </button>
+          `;
+
+          powersGrid.querySelectorAll('.power-btn').forEach(btn => {
+            btn.onclick = function() {
+              if (terminalFrozen) {
+                showToast('❌ Actions blocked due to hostile Impostor effect!');
+                return;
+              }
+              const actionName = btn.dataset.action;
+              const msg = `🛡️ CREWMATE ACTION: ${activeTeam.name} (${activeTeam.teamCode || activeTeam.id}) triggered ${actionName} in ${activeRoom?.name || 'Sector'}!`;
+              logActivity('task', msg, actionName);
+              showToast(`Dispatched ${actionName} to facilitator`);
+
+              btn.disabled = true;
+              let cd = 10;
+              const titleEl = btn.querySelector('.power-btn-title');
+              const orig = titleEl.innerHTML;
+              const timer = setInterval(() => {
+                cd--;
+                if (cd <= 0) {
+                  clearInterval(timer);
+                  btn.disabled = false;
+                  titleEl.innerHTML = orig;
+                } else {
+                  titleEl.textContent = `${actionName} (${cd}s)`;
+                }
+              }, 1000);
+            };
+          });
+        }
+      }
+
+      function handleTriggerPower(port) {
+        if (port.targetRequired) {
+          selectedPortForTargeting = port;
+          const modal = document.getElementById('targetingModal');
+          const title = document.getElementById('targetingModalTitle');
+          const select = document.getElementById('targetTeamSelect');
+
+          title.textContent = `⚡ TARGET CREWMATE: ${port.name}`;
+
+          // Find other teams in this room
+          const otherTeams = allTeamsCached.filter(t =>
+            t.assignedRoomId === activeTeam.assignedRoomId &&
+            t.id !== activeTeam.id
+          );
+
+          select.innerHTML = '';
+          if (otherTeams.length === 0) {
+            select.innerHTML = '<option value="" disabled selected>No other teams currently in this room</option>';
+            document.getElementById('btnConfirmTargeting').disabled = true;
+          } else {
+            document.getElementById('btnConfirmTargeting').disabled = false;
+            otherTeams.forEach(t => {
+              const opt = document.createElement('option');
+              opt.value = t.id;
+              opt.textContent = `${t.name} (${t.teamCode || t.id}) [${t.memberDetails?.length || t.members?.length || 0} players]`;
+              select.appendChild(opt);
+            });
+          }
+
+          modal.style.display = 'flex';
+        } else {
+          // Room-wide power (e.g. Sabotage Lights)
+          executePowerStrike(port, null);
+        }
+      }
+
+      function executePowerStrike(port, targetTeam) {
+        const duration = port.durationSeconds || 30;
+        const now = Date.now();
+
+        // Update target team effects in allTeamsCached
+        if (targetTeam) {
+          const freshTarget = allTeamsCached.find(t => t.id === targetTeam.id);
+          if (freshTarget) {
+            freshTarget.activeEffects = freshTarget.activeEffects || [];
+            freshTarget.activeEffects.push({
+              id: 'eff-' + now,
+              powerName: port.name,
+              appliedByTeamId: activeTeam.teamCode || activeTeam.id,
+              appliedByTeamName: activeTeam.name,
+              appliedAt: new Date().toISOString(),
+              durationSeconds: duration,
+              expiresAt: now + duration * 1000,
+              description: port.description
+            });
+          }
+        } else {
+          // Apply to all other teams in this room
+          allTeamsCached.forEach(t => {
+            if (t.assignedRoomId === activeTeam.assignedRoomId && t.id !== activeTeam.id) {
+              t.activeEffects = t.activeEffects || [];
+              t.activeEffects.push({
+                id: 'eff-' + now,
+                powerName: port.name,
+                appliedByTeamId: activeTeam.teamCode || activeTeam.id,
+                appliedByTeamName: activeTeam.name,
+                appliedAt: new Date().toISOString(),
+                durationSeconds: duration,
+                expiresAt: now + duration * 1000,
+                description: port.description
+              });
+            }
+          });
+        }
+
+        // Set cooldown on this port for the impostor team
+        const freshImpostor = allTeamsCached.find(t => t.id === activeTeam.id);
+        if (freshImpostor && freshImpostor.powerPorts) {
+          const targetPortObj = freshImpostor.powerPorts.find(p => p.port === port.port);
+          if (targetPortObj) {
+            targetPortObj.lastUsedAt = new Date().toISOString();
+          }
+        } else if (activeTeam.powerPorts) {
+          const targetPortObj = activeTeam.powerPorts.find(p => p.port === port.port);
+          if (targetPortObj) {
+            targetPortObj.lastUsedAt = new Date().toISOString();
+          }
+        }
+
+        // Save updated teams to localStorage
+        localStorage.setItem('nexus_teams_v2', JSON.stringify(allTeamsCached));
+
+        // Format log message
+        const logMsg = targetTeam
+          ? `⚡ IMPOSTOR POWER: ${activeTeam.name} (${activeTeam.teamCode || activeTeam.id}) struck ${targetTeam.name} (${targetTeam.teamCode || targetTeam.id}) with [Port ${port.port}: ${port.name}] in ${activeRoom?.name || 'Sector'}! Effect active for ${duration}s.`
+          : `⚡ IMPOSTOR POWER: ${activeTeam.name} (${activeTeam.teamCode || activeTeam.id}) activated [Port ${port.port}: ${port.name}] across ${activeRoom?.name || 'Sector'}!`;
+
+        logActivity('power', logMsg, port.name, targetTeam);
+        showToast(targetTeam ? `⚡ Struck ${targetTeam.name} with ${port.name}!` : `⚡ Activated ${port.name} across sector!`);
+
+        loadSession();
+      }
+
+      // Modal Buttons
+      document.getElementById('btnCloseTargetingModal').onclick = function() {
+        document.getElementById('targetingModal').style.display = 'none';
+      };
+
+      document.getElementById('btnCancelTargeting').onclick = function() {
+        document.getElementById('targetingModal').style.display = 'none';
+      };
+
+      document.getElementById('btnConfirmTargeting').onclick = function() {
+        const targetSelect = document.getElementById('targetTeamSelect');
+        const targetId = targetSelect.value;
+        if (!targetId || !selectedPortForTargeting) return;
+
+        const targetTeam = allTeamsCached.find(t => t.id === targetId);
+        document.getElementById('targetingModal').style.display = 'none';
+        executePowerStrike(selectedPortForTargeting, targetTeam);
+      };
+
+      loadSession();
+
+      // Listen for changes across tabs (e.g. when Admin rolls Impostor or changes powers)
+      window.addEventListener('storage', function(e) {
+        if (e.key === 'nexus_teams_v2' || e.key === 'nexus_player_session') {
+          loadSession();
+        }
+      });
+
+      // Poll every 2 seconds to keep player role, cooldowns, and active effects fresh
+      setInterval(loadSession, 2000);
+
+      document.getElementById('btnLogout').onclick = function() {
+        localStorage.removeItem('nexus_player_session');
+        window.location.href = 'index2.html';
+      };
+    })();
+  </script>
+</body>
+</html>

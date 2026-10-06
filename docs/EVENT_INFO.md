@@ -8,15 +8,16 @@ Ready to put your brains, instincts & detective skills to the test? 👀🔥
 
 ## 🕹️ Event 1: CODED CHAOS — Among Us: Coded Chaos
 - **Official Registration**: [https://tinyurl.com/bdfp2emu](https://tinyurl.com/bdfp2emu)
-- **Theme**: Physical + Digital Live Among Us Arena
-- **Description**: Step aboard the station, accomplish debugging tasks, uncover sabotages, and deduce who among your fellow crew is trying to bring down the ship!
+- **Theme**: Physical + Digital Live Among Us Station Arena
+- **Format**: Individual squad teams deployed across sector rooms (Room 1, Room 2, Reactor, Electrical, Cafeteria, Navigation) grouped into operational zones.
+- **Mechanics**: Accomplish debugging tasks, survive sabotages, trigger 3-port Impostor powers, and deduce who among your fellow crew is bringing down the sector!
 
 ---
 
 ## 🕵🏻‍♀️ Event 2: TECH MYSTERY — Can you crack the mystery?
 - **Official Registration**: [https://tinyurl.com/45sbus6m](https://tinyurl.com/45sbus6m)
 - **Theme**: Cyber Cryptography & Forensic Detective Investigation
-- **Description**: A digital crime scene. Hidden files, corrupted ciphers, steganography, and enigmatic logs. Can your squad crack the mystery before the clock hits zero?
+- **Format**: A digital crime scene across sector rooms. Hidden dossiers, corrupted ciphers, steganography, and enigmatic logs. Can your squad crack the mystery before the clock hits zero?
 
 ---
 

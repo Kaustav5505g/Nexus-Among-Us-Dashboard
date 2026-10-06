@@ -30,6 +30,7 @@ coverage
 node_modules/
 jspm_packages/
 
+
 # TypeScript cache
 *.tsbuildinfo
 
@@ -94,3 +95,5 @@ desktop.ini
 tmp/
 temp/
 scratch/
+dumb/
+
