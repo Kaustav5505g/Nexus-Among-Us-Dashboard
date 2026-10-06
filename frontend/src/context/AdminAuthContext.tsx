@@ -77,7 +77,18 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   useEffect(() => {
     if (user) {
-      localStorage.setItem('nexus_admin_user', JSON.stringify(user));
+      // Store non-sensitive session identity only (never credentials or passcodes)
+      const sessionUser: Omit<AdminUser, 'password'> = {
+        id: user.id,
+        facilitatorId: user.facilitatorId,
+        username: user.username,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        pocRoom: user.pocRoom,
+        title: user.title,
+      };
+      localStorage.setItem('nexus_admin_user', JSON.stringify(sessionUser));
     } else {
       localStorage.removeItem('nexus_admin_user');
     }

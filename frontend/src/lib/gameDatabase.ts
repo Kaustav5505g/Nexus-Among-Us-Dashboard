@@ -131,7 +131,6 @@ const INITIAL_STAFF_USERS: AdminUser[] = [
     title: 'Tech Admin',
     role: 'super_admin',
     email: 'nexus@nexus.org',
-    password: 'Aditya@123',
   },
   {
     id: 'NX-SUPER-01',
@@ -141,7 +140,6 @@ const INITIAL_STAFF_USERS: AdminUser[] = [
     title: 'Lead Operations Facilitator (Master Admin)',
     role: 'super_admin',
     email: 'tejas@nexus.org',
-    password: 'master2026',
   },
   {
     id: 'NX-ADMIN-02',
@@ -151,7 +149,6 @@ const INITIAL_STAFF_USERS: AdminUser[] = [
     title: 'Station Operations Admin',
     role: 'admin',
     email: 'aarav@nexus.org',
-    password: 'admin2026',
   },
   {
     id: 'NX-POC-03',
@@ -162,7 +159,6 @@ const INITIAL_STAFF_USERS: AdminUser[] = [
     role: 'moderator',
     email: 'zoya@nexus.org',
     pocRoom: 'Reactor',
-    password: 'poc2026',
   },
 ];
 
@@ -816,7 +812,18 @@ export const AllocationDatabase = {
       if (rootAccount && !finalUsers.some(u => isRootMasterAccount(u))) {
         finalUsers.unshift(rootAccount);
       }
-      localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(finalUsers));
+      // Never store sensitive credentials/passwords in browser localStorage (OWASP / CodeQL compliance)
+      const sanitizedProfiles: Omit<AdminUser, 'password'>[] = finalUsers.map(u => ({
+        id: u.id,
+        facilitatorId: u.facilitatorId || u.username || u.id,
+        username: u.username,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        pocRoom: u.pocRoom,
+        title: u.title,
+      }));
+      localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(sanitizedProfiles));
     } catch (e) {
       console.error('Failed to save staff users to localStorage', e);
     }
@@ -1479,10 +1486,12 @@ export const AllocationDatabase = {
         teamsCount = mappedTeams.length;
       }
 
-      // 3. Fetch Admin Users
-      const { data: staffData, error: staffErr } = await supabase.from('admin_users').select('*');
+      // 3. Fetch Admin Users (Operational profiles only - never store cleartext credentials in localStorage)
+      const { data: staffData, error: staffErr } = await supabase
+        .from('admin_users')
+        .select('id, facilitator_id, username, name, email, role, poc_room, title');
       if (!staffErr && staffData && staffData.length > 0) {
-        const mappedStaff: AdminUser[] = staffData.map((s: any) => ({
+        const mappedStaff: Omit<AdminUser, 'password'>[] = staffData.map((s: any) => ({
           id: s.id,
           facilitatorId: s.facilitator_id || s.username || s.id,
           username: s.username,
@@ -1491,7 +1500,6 @@ export const AllocationDatabase = {
           role: s.role,
           pocRoom: s.poc_room || undefined,
           title: s.title || undefined,
-          password: s.password || s.password_hash || undefined,
         }));
         localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(mappedStaff));
         staffCount = mappedStaff.length;
