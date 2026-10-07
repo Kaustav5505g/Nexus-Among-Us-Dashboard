@@ -2,6 +2,7 @@ import express from 'express';
 import http from 'http';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 import { Server as SocketIOServer } from 'socket.io';
 
 import teamRoutes from './routes/teams';
@@ -11,7 +12,8 @@ import adminRoutes from './routes/admin';
 import { registerSocketHandlers } from './sockets/gameSocket';
 import { errorHandler } from './middleware/errorHandler';
 
-dotenv.config();
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+dotenv.config({ path: path.resolve(process.cwd(), '..', '.env') });
 
 const app = express();
 const server = http.createServer(app);

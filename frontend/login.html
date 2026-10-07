@@ -1,9 +1,11 @@
-<html lang="en"><head>
+<!DOCTYPE html>
+<html lang="en">
+<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#050813">
 <title>Among Us: Coded Chaos | TechIdeate'26</title>
-<link href="https://fonts.googleapis.com/css2?family=Titan+One&amp;family=Michroma&amp;family=Chakra+Petch:wght@500;600;700&amp;family=Barlow:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Titan+One&family=Michroma&family=Chakra+Petch:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
 :root{color-scheme:dark;--void:#03050c;--line:#232f55;--text:#f1ebe0;--mute:#9aa3bd;--blue:#6fb4e8;--red:#d8343f;--ice:#a9d8f5;--ok:#4fb3a2;--bad:#ff8a8a}
@@ -106,53 +108,46 @@ input[aria-invalid=true]{border-color:var(--bad)}
 </style>
 </head>
 <body>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="rough"><feTurbulence type="fractalNoise" baseFrequency=".03" numOctaves="2" seed="4" result="n"></feTurbulence><feDisplacementMap in="SourceGraphic" in2="n" scale="5"></feDisplacementMap></filter></svg>
-<canvas id="gl" aria-hidden="true" width="589" height="1278"></canvas><div id="vig"></div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="rough"><feTurbulence type="fractalNoise" baseFrequency=".03" numOctaves="2" seed="4" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+<canvas id="gl" aria-hidden="true"></canvas><div id="vig"></div>
 <i class="shoot" style="top:6%"></i><i class="shoot" style="top:34%;animation-delay:-3s"></i><i class="shoot" style="top:62%;animation-delay:-5s"></i>
 
-<section id="cover" aria-label="Among Us: Coded Chaos" class="rel" style="--p: 0;">
-  <div class="brandline"><svg viewBox="0 0 40 52" aria-hidden="true"><path d="M20 3a14 14 0 0 0-8 25c2 2 3 4 3 7h10c0-3 1-5 3-7A14 14 0 0 0 20 3z"></path><path d="M15 40h10M16 46h8M16 17l4 5 4-5M20 22v13"></path></svg>TechIdeate'26</div>
+<section id="cover" aria-label="Among Us: Coded Chaos">
+  <div class="brandline"><svg viewBox="0 0 40 52" aria-hidden="true"><path d="M20 3a14 14 0 0 0-8 25c2 2 3 4 3 7h10c0-3 1-5 3-7A14 14 0 0 0 20 3z"/><path d="M15 40h10M16 46h8M16 17l4 5 4-5M20 22v13"/></svg>TechIdeate'26</div>
   <p class="pres">PRESENTS</p>
-  <div class="stage"><h1 class="title" id="title" aria-label="Among Us Coded Chaos" style="--ty: 2.291667175292968deg; --tx: 2.1443605351268795deg;"><span class="t1" aria-hidden="true">AM<i class="o" id="oCm"><svg class="cm" viewBox="0 0 100 110" aria-hidden="true"><rect x="10" y="38" width="20" height="40" rx="9" fill="#b13a45" style="filter:brightness(.7)"></rect><path d="M25 40Q25 12 52 12Q79 12 79 40V90Q79 98 70 98H58Q54 98 54 93V82H46V93Q46 98 42 98H34Q25 98 25 90Z" fill="#b13a45"></path><path d="M60 22Q79 26 79 44V90Q79 98 70 98H58Q54 98 54 93V82H62Q66 70 66 56Z" fill="#000" opacity=".17"></path><rect x="42" y="26" width="36" height="24" rx="12" fill="#9fd2f5"></rect><rect x="49" y="30" width="18" height="6" rx="3" fill="#fff" opacity=".75"></rect></svg></i>NG US</span><span class="t2" aria-hidden="true">CODED CHAOS</span></h1></div>
+  <div class="stage"><h1 class="title" id="title" aria-label="Among Us Coded Chaos"><span class="t1" aria-hidden="true">AM<i class="o" id="oCm"></i>NG US</span><span class="t2" aria-hidden="true">CODED CHAOS</span></h1></div>
   <ul class="tags"><li>Deceive</li><li>Discuss</li><li>Decipher</li><li>Survive</li></ul>
   <button class="hint" id="hint" aria-label="Swipe up to enter"><span class="chev"><i></i><i></i><i></i></span>SWIPE UP</button>
 </section>
 
-<main class="screen" id="login" style="--lo: 0;">
+<main class="screen" id="login">
   <div class="lg">
     <div class="nlogo" aria-label="Nexus">
-      <svg viewBox="0 0 420 150" aria-hidden="true"><defs><path id="o1" d="M30 82a180 46 -14 1 0 360-24a180 46 -14 1 0-360 24z"></path><path id="o2" d="M50 60a160 38 18 1 0 320 30a160 38 18 1 0-320-30z"></path></defs><use href="#o1" fill="none" stroke="#dbe6ff" stroke-width="1.6" opacity=".85"></use><use href="#o2" fill="none" stroke="#6fb4e8" stroke-width="1.6"></use><circle r="6" fill="#6fb4e8"><animateMotion dur="9s" repeatCount="indefinite"><mpath href="#o1"></mpath></animateMotion></circle><circle r="5" fill="#f1f4ff"><animateMotion dur="12s" repeatCount="indefinite"><mpath href="#o2"></mpath></animateMotion></circle></svg>
+      <svg viewBox="0 0 420 150" aria-hidden="true"><defs><path id="o1" d="M30 82a180 46 -14 1 0 360-24a180 46 -14 1 0-360 24z"/><path id="o2" d="M50 60a160 38 18 1 0 320 30a160 38 18 1 0-320-30z"/></defs><use href="#o1" fill="none" stroke="#dbe6ff" stroke-width="1.6" opacity=".85"/><use href="#o2" fill="none" stroke="#6fb4e8" stroke-width="1.6"/><circle r="6" fill="#6fb4e8"><animateMotion dur="9s" repeatCount="indefinite"><mpath href="#o1"/></animateMotion></circle><circle r="5" fill="#f1f4ff"><animateMotion dur="12s" repeatCount="indefinite"><mpath href="#o2"/></animateMotion></circle></svg>
       <div class="word">NE<b>X</b>US</div><div class="ntag">NETWORK · EXPLORE · TRANSFORM</div>
     </div>
     <div class="frame" id="frame"><div class="in">
-      <form id="f" novalidate="">
-        <div class="inp"><label class="sr" for="tid">Team ID</label><svg class="ic" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M7 8h10M7 12h10M7 16h6"></path></svg><input type="text" id="tid" maxlength="32" autocomplete="off" autocapitalize="characters" enterkeyhint="next" placeholder="Team ID (e.g. NX-T1)" style="text-transform:uppercase;"></div>
-        <div class="inp"><label class="sr" for="pname">Player Name</label><svg class="ic" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"></circle><path d="M5.5 21a8.38 8.38 0 0 1 13 0"></path></svg><input type="text" id="pname" maxlength="32" autocomplete="off" autocapitalize="words" enterkeyhint="go" placeholder="Player Name (Optional)"></div>
-        <div class="err" id="err" role="alert"></div>
-        <div class="enterw"><button class="enter" type="submit"><span>ENTER <svg class="ic" viewBox="0 0 24 24"><path d="M4 12h15M13 6l6 6-6 6"></path></svg></span></button></div>
+      <form id="f" novalidate>
+        <div class="inp"><label class="sr" for="teamId">Team ID</label><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/><circle cx="18" cy="17" r="3"/></svg><input type="text" id="teamId" maxlength="40" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="next" placeholder="Team ID" aria-describedby="err"></div>
+        <div class="inp"><label class="sr" for="playerName">Player name</label><svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6"/><circle cx="17.5" cy="9" r="2.4"/><path d="M17 14.2c2.4.2 4 2.2 4 4.8"/></svg><input type="text" id="playerName" maxlength="60" autocomplete="name" autocapitalize="words" enterkeyhint="go" placeholder="Player Name" aria-describedby="err"></div>
+        <div class="err" id="err" role="alert" aria-live="polite"></div>
+        <div class="enterw"><button class="enter" type="submit"><span>ENTER <svg class="ic" viewBox="0 0 24 24"><path d="M4 12h15M13 6l6 6-6 6"/></svg></span></button></div>
       </form>
     </div></div>
     <button class="back" id="back">Back to the cover</button>
   </div>
 </main>
 
-<main class="screen" id="lobby">
-  <div class="top"><div class="mini">NE<b>X</b>US</div><button class="btn red" id="emBtn">Emergency meeting</button><button class="btn ghost" id="leave">Log out</button></div>
-  <div class="welcome"><h2 id="wName"></h2><div class="chips"><span class="chip">Among Us: Coded Chaos</span><span class="chip" id="wPhone"></span><span class="chip" id="wCount"></span></div></div>
-  <form class="add" id="addf"><input type="text" id="mname" maxlength="16" autocomplete="off" aria-label="Crewmate name" placeholder="Add a crewmate name"><button class="btn" type="submit">Add crewmate</button></form>
-  <div class="floor" id="floor" aria-live="polite"></div>
-</main>
-
-<div id="warp"><div id="dcm"><svg class="cm" viewBox="0 0 100 110" aria-hidden="true"><rect x="10" y="38" width="20" height="40" rx="9" fill="#b13a45" style="filter:brightness(.7)"></rect><path d="M25 40Q25 12 52 12Q79 12 79 40V90Q79 98 70 98H58Q54 98 54 93V82H46V93Q46 98 42 98H34Q25 98 25 90Z" fill="#b13a45"></path><path d="M60 22Q79 26 79 44V90Q79 98 70 98H58Q54 98 54 93V82H62Q66 70 66 56Z" fill="#000" opacity=".17"></path><rect x="42" y="26" width="36" height="24" rx="12" fill="#9fd2f5"></rect><rect x="49" y="30" width="18" height="6" rx="3" fill="#fff" opacity=".75"></rect></svg></div><p id="stx"></p><div class="pbar"><i id="pbi"></i></div></div>
+<div id="warp"><p id="stx"></p><div class="pbar"><i id="pbi"></i></div></div>
 <div id="flash"></div>
-<div id="em" role="alertdialog" aria-label="Emergency meeting"><div><div id="emcm"><svg class="cm" viewBox="0 0 100 110" aria-hidden="true"><rect x="10" y="38" width="20" height="40" rx="9" fill="#ece6dc" style="filter:brightness(.7)"></rect><path d="M25 40Q25 12 52 12Q79 12 79 40V90Q79 98 70 98H58Q54 98 54 93V82H46V93Q46 98 42 98H34Q25 98 25 90Z" fill="#ece6dc"></path><path d="M60 22Q79 26 79 44V90Q79 98 70 98H58Q54 98 54 93V82H62Q66 70 66 56Z" fill="#000" opacity=".17"></path><rect x="42" y="26" width="36" height="24" rx="12" fill="#9fd2f5"></rect><rect x="49" y="30" width="18" height="6" rx="3" fill="#fff" opacity=".75"></rect></svg></div><div class="t">EMERGENCY<br>MEETING</div><p>Everyone to the cafeteria.</p></div></div>
 
-<script>
+<script type="module">
 const $=s=>document.querySelector(s),RM=matchMedia('(prefers-reduced-motion: reduce)').matches,wait=ms=>new Promise(r=>setTimeout(r,ms));
+const API_BASE=(import.meta.env.VITE_API_BASE_URL||import.meta.env.VITE_API_URL||'/api').replace(/\/$/,'');
 const pal=['#b13a45','#3f5fb8','#d68a3c','#6a63a8','#4fa39a','#c9b56a','#a85a9a','#7a8aa6'];
 const cm=c=>`<svg class="cm" viewBox="0 0 100 110" aria-hidden="true"><rect x="10" y="38" width="20" height="40" rx="9" fill="${c}" style="filter:brightness(.7)"/><path d="M25 40Q25 12 52 12Q79 12 79 40V90Q79 98 70 98H58Q54 98 54 93V82H46V93Q46 98 42 98H34Q25 98 25 90Z" fill="${c}"/><path d="M60 22Q79 26 79 44V90Q79 98 70 98H58Q54 98 54 93V82H62Q66 70 66 56Z" fill="#000" opacity=".17"/><rect x="42" y="26" width="36" height="24" rx="12" fill="#9fd2f5"/><rect x="49" y="30" width="18" height="6" rx="3" fill="#fff" opacity=".75"/></svg>`;
-let members=[],mode='cover',scene3d=null;
-$('#oCm').innerHTML=cm(pal[0]);$('#dcm').innerHTML=cm(pal[0]);$('#emcm').innerHTML=cm('#ece6dc');
+let mode='cover',scene3d=null;
+$('#oCm').innerHTML=cm(pal[0]);
 
 let color='#d11a1a';
 /* ===== 3D space scene ===== */
@@ -222,123 +217,52 @@ function setP(p){prog=Math.max(0,Math.min(1,p));cover.style.setProperty('--p',pr
 cover.onpointerdown=e=>{if(opened||e.target.closest('#hint'))return;sy=e.clientY;moved=false;cover.classList.remove('rel');cover.setPointerCapture(e.pointerId);login.classList.add('on');cover.style.cursor='grabbing'};
 cover.onpointermove=e=>{if(sy==null)return;moved=true;setP((sy-e.clientY)/(innerHeight*.5))};
 cover.onpointerup=cover.onpointercancel=()=>{if(sy==null)return;sy=null;cover.style.cursor='';cover.classList.add('rel');if(prog>.25)openLogin();else{setP(0);login.classList.remove('on')}};
-function openLogin(){if(opened)return;opened=true;navigator.vibrate&&navigator.vibrate(30);mode='login';login.classList.add('on');cover.classList.add('rel');setP(1);warpTo3(1);setTimeout(()=>warpTo3(0),650);setTimeout(()=>{cover.classList.add('gone');$('#tid').focus({preventScroll:true})},850)}
+function openLogin(){if(opened)return;opened=true;navigator.vibrate&&navigator.vibrate(30);mode='login';login.classList.add('on');cover.classList.add('rel');setP(1);warpTo3(1);setTimeout(()=>warpTo3(0),650);setTimeout(()=>{cover.classList.add('gone');$('#teamId').focus({preventScroll:true})},850)}
 function backToCover(){opened=false;mode='cover';cover.classList.remove('gone');void cover.offsetWidth;cover.classList.add('rel');setP(0);setTimeout(()=>{if(!opened)login.classList.remove('on')},800)}
 $('#hint').onclick=openLogin;$('#back').onclick=backToCover;
 addEventListener('wheel',e=>{if(!opened&&mode==='cover'&&e.deltaY>20)openLogin();else if(opened&&mode==='login'&&scrollY===0&&e.deltaY<-40)backToCover()},{passive:true});
 addEventListener('keydown',e=>{if(!opened&&mode==='cover'&&['ArrowUp','ArrowDown','Enter',' '].includes(e.key)){e.preventDefault();openLogin()}});
 if(!RM&&matchMedia('(hover:hover)').matches)addEventListener('pointermove',e=>{const t=$('#title');t.style.setProperty('--ty',((e.clientX/innerWidth-.5)*16)+'deg');t.style.setProperty('--tx',(-(e.clientY/innerHeight-.5)*12)+'deg')});
 
-/* ===== login & database auth ===== */
+/* ===== login ===== */
 const fr=$('#frame');
 if(!RM&&matchMedia('(hover:hover)').matches){fr.onpointermove=e=>{const b=fr.getBoundingClientRect(),x=(e.clientX-b.left)/b.width-.5,y=(e.clientY-b.top)/b.height-.5;fr.style.transform=`perspective(1000px) rotateY(${x*6}deg) rotateX(${-y*6}deg)`};fr.onpointerleave=()=>fr.style.transform=''}
-$('#tid').oninput=e=>{e.target.removeAttribute('aria-invalid');$('#err').textContent=''};
-$('#pname').oninput=e=>{e.target.removeAttribute('aria-invalid');$('#err').textContent=''};
+$('#teamId').oninput=e=>e.target.removeAttribute('aria-invalid');
+$('#playerName').oninput=e=>e.target.removeAttribute('aria-invalid');
 function fail(msg,el){$('#err').textContent=msg;el.setAttribute('aria-invalid','true');el.focus();fr.classList.remove('shake');void fr.offsetWidth;fr.classList.add('shake')}
 async function warpTo(steps,done){const w=$('#warp'),fl=$('#flash');w.classList.add('on');$('#pbi').style.width='0';warpTo3(1);await wait(RM?0:500);
  for(const [i,s] of steps.entries()){$('#stx').textContent=s;$('#pbi').style.width=((i+1)/steps.length*100)+'%';await wait(RM?80:650)}
  fl.style.opacity=1;await wait(RM?0:350);done();warpTo3(0);scrollTo(0,0);w.classList.remove('on');fl.style.opacity=0}
-
-function getDatabaseTeams(){
- try{
-  const raw=localStorage.getItem('nexus_teams_v2');
-  if(raw){const p=JSON.parse(raw);if(Array.isArray(p)&&p.length>0)return p}
- }catch(e){}
- return[
-  {id:'team-1',teamCode:'NX-T1',name:'Alpha Crew',assignedRoomId:'room-1',assignedRoomName:'Cafeteria',assignedZone:'Zone A',members:['Alice','Bob']},
-  {id:'team-2',teamCode:'NX-T2',name:'Beta Impostors',assignedRoomId:'room-2',assignedRoomName:'MedBay',assignedZone:'Zone B',members:['Charlie','Dave']},
-  {id:'team-3',teamCode:'NX-T3',name:'Gamma Detectives',assignedRoomId:'room-3',assignedRoomName:'Electrical',assignedZone:'Zone C',members:['Eve','Frank']},
-  {id:'team-4',teamCode:'NX-T4',name:'Delta Voyagers',assignedRoomId:'room-4',assignedRoomName:'Navigation',assignedZone:'Zone D',members:['Grace','Heidi']},
-  {id:'team-5',teamCode:'NX-T5',name:'Omega Saboteurs',assignedRoomId:'room-5',assignedRoomName:'Reactor',assignedZone:'Zone E',members:['Ivan','Judy']}
- ];
-}
-
-function getDatabaseRooms(){
- try{
-  const raw=localStorage.getItem('nexus_rooms_v2');
-  if(raw){const p=JSON.parse(raw);if(Array.isArray(p)&&p.length>0)return p}
- }catch(e){}
- return[
-  {id:'room-1',name:'Cafeteria',zone:'Zone A',pocName:'Sarah Jenkins',pocContact:'+91 98765 43210'},
-  {id:'room-2',name:'MedBay',zone:'Zone B',pocName:'Dr. Marcus Vance',pocContact:'+91 98765 43211'},
-  {id:'room-3',name:'Electrical',zone:'Zone C',pocName:'Elena Rostova',pocContact:'+91 98765 43212'},
-  {id:'room-4',name:'Navigation',zone:'Zone D',pocName:'Captain James Cole',pocContact:'+91 98765 43213'},
-  {id:'room-5',name:'Reactor',zone:'Zone E',pocName:'Chief Engineer Chen',pocContact:'+91 98765 43214'}
- ];
-}
-
 $('#f').onsubmit=async e=>{
  e.preventDefault();
- const enteredId=$('#tid').value.trim();
- const enteredPlayer=$('#pname').value.trim();
- if(!enteredId)return fail('Enter your Team ID (e.g. NX-T1).',$('#tid'));
-
- const teams=getDatabaseTeams();
- const matchedTeam=teams.find(t=>
-  (t.teamCode&&t.teamCode.toUpperCase()===enteredId.toUpperCase())||
-  (t.id&&t.id.toLowerCase()===enteredId.toLowerCase())||
-  (t.name&&t.name.toLowerCase()===enteredId.toLowerCase())
- );
-
- if(!matchedTeam){
-  return fail('Invalid Team ID. Check with your event coordinator.', $('#tid'));
- }
-
- const rooms=getDatabaseRooms();
- const matchedRoom=rooms.find(r=>r.id===matchedTeam.assignedRoomId)||{
-  name:matchedTeam.assignedRoomName||'Unassigned',
-  zone:matchedTeam.assignedZone||'Pending',
-  pocName:'Event Coordinator',
-  pocContact:'Help Desk'
- };
-
- const session={
-  team:matchedTeam,
-  room:matchedRoom,
-  playerName:enteredPlayer||'Crewmate',
-  loggedInAt:new Date().toISOString()
- };
-
- localStorage.setItem('nexus_player_session',JSON.stringify(session));
-
- try{
-  const rawLogs=localStorage.getItem('nexus_activity_logs_v2');
-  const logs=rawLogs?JSON.parse(rawLogs):[];
-  logs.unshift({
-   id:'log-'+Date.now(),
-   timestamp:new Date().toISOString(),
-   type:'login',
-   message:'Team '+matchedTeam.name+' ('+(matchedTeam.teamCode||matchedTeam.id)+') logged in. Role: '+(matchedTeam.isImpostor?'IMPOSTOR':'CREWMATE')+' in '+matchedRoom.name+'.',
-   teamId:matchedTeam.teamCode||matchedTeam.id,
-   teamName:matchedTeam.name,
-   roomName:matchedRoom.name,
-   severity:matchedTeam.isImpostor?'warning':'info'
-  });
-  localStorage.setItem('nexus_activity_logs_v2',JSON.stringify(logs.slice(0,500)));
- }catch(e){}
-
+ const teamId=$('#teamId').value.trim().toUpperCase();
+ const playerName=$('#playerName').value.trim().replace(/\s+/g,' ');
+ if(!/^[A-Z0-9][A-Z0-9-]{1,39}$/.test(teamId))return fail('Enter the Team ID shown on your event pass.',$('#teamId'));
+ if(playerName.length<2||playerName.length>60||/[\u0000-\u001f\u007f]/u.test(playerName))return fail('Enter a player name between 2 and 60 characters.',$('#playerName'));
  $('#err').textContent='';
-
- const warpSteps=['Verifying Team ID…','Authenticating player clearance…',matchedTeam.isImpostor?'ALERT: IMPOSTOR ACCESS DETECTED…':'CREWMATE CLEARANCE CONFIRMED…','Entering player terminal…'];
- await warpTo(warpSteps,()=>{
-  window.location.href='player.html';
- });
+ const submit=$('#f button[type="submit"]');
+ submit.disabled=true;
+ submit.setAttribute('aria-busy','true');
+ try{
+  const request=fetch(`${API_BASE}/teams/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({teamId,playerName})})
+   .then(async response=>{const result=await response.json().catch(()=>null);if(!response.ok||!result?.success)throw new Error(result?.message||'Sign-in failed. Please try again.');return result.data});
+  const animation=warpTo(['Verifying Team ID…','Checking player roster…','Synchronizing event session…'],()=>{});
+  let session;
+  try{session=await request}catch(error){await animation;throw error}
+  await animation;
+  localStorage.setItem('nexus_player_session',JSON.stringify({
+   teamId:session.team.teamCode,
+   playerName:session.player.name
+  }));
+  window.location.assign('player.html');
+ }catch(error){
+  const message=error instanceof Error?error.message:'Player sign-in failed. Please try again.';
+  fail(message,message.toLowerCase().includes('team id')?$('#teamId'):$('#playerName'));
+ }finally{
+  submit.disabled=false;
+  submit.removeAttribute('aria-busy');
+ }
 };
-/* ===== lobby ===== */
-const esc=s=>s.replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
-function draw(){$('#wCount').textContent=members.length+(members.length===1?' crewmate':' crewmates');
- $('#floor').innerHTML=members.length?members.map((m,i)=>{const c=pal[i%8];return `<div class="mem" style="--g:${c}" data-i="${i}"><button class="fl" aria-label="Wave: ${esc(m)}">${cm(c)}</button><span class="no">${i+1}</span><b>${esc(m)}</b><button class="x" aria-label="Remove ${esc(m)}">✕</button></div>`}).join(''):'<div class="empty">No crewmates yet. Add your first member above.</div>'}
-$('#addf').onsubmit=e=>{e.preventDefault();const v=$('#mname').value.trim();if(!v)return;if(members.length>=10){$('#mname').placeholder='The ship is full (10 max)';$('#mname').value='';return}members.push(v);$('#mname').value='';draw()};
-const fl=$('#floor');
-fl.onclick=e=>{const m=e.target.closest('.mem');if(!m)return;if(e.target.closest('.x')){members.splice(+m.dataset.i,1);draw();return}m.classList.remove('hop');void m.offsetWidth;m.classList.add('hop')};
-fl.onpointermove=e=>{const m=e.target.closest('.mem');if(!m||RM)return;const b=m.getBoundingClientRect();m.style.setProperty('--ry',((e.clientX-b.left)/b.width-.5)*20+'deg');m.style.setProperty('--rx',-((e.clientY-b.top)/b.height-.5)*20+'deg')};
-fl.onmouseout=e=>{const m=e.target.closest('.mem');if(m&&!m.contains(e.relatedTarget)){m.style.setProperty('--rx','0deg');m.style.setProperty('--ry','0deg')}};
-$('#leave').onclick=()=>warpTo(['Logging out…','Returning to the dock…'],()=>{members=[];mode='login';$('#lobby').classList.remove('on');login.classList.add('on')});
-/* emergency */
-let tm;function beep(){try{const a=new(window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator(),g=a.createGain(),t=a.currentTime;o.type='square';g.gain.value=.04;o.connect(g);g.connect(a.destination);[0,.25,.5,.75].forEach((d,i)=>o.frequency.setValueAtTime(i%2?520:760,t+d));o.start(t);o.stop(t+1)}catch(e){}}
-function closeEm(){clearTimeout(tm);$('#em').classList.remove('on');if(scene3d)scene3d.S.alarm=0}
-$('#emBtn').onclick=()=>{navigator.vibrate&&navigator.vibrate([200,100,200,100,200]);const em=$('#em');em.classList.remove('on');void em.offsetWidth;em.classList.add('on');beep();if(scene3d)scene3d.S.alarm=1;tm=setTimeout(closeEm,3600)};$('#em').onclick=closeEm;
 </script>
-
-
-</body></html>
+</body>
+</html>
