@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AdminAuthProvider } from './context/AdminAuthContext';
 
 const AmongUsAdmin = lazy(() => import('./pages/AmongUsAdmin'));
+const Login = lazy(() => import('./pages/Login'));
+const Player = lazy(() => import('./pages/Player'));
 
 export default function App() {
   return (
@@ -19,7 +21,8 @@ export default function App() {
           }
         >
           <Routes>
-            <Route path="/" element={<AmongUsAdmin />} />
+            <Route path="/" element={<Login />} />
+            <Route path="/player" element={<Player />} />
             <Route path="/admin" element={<AmongUsAdmin />} />
             <Route path="/dashboard" element={<AmongUsAdmin />} />
             <Route path="*" element={<Navigate to="/" replace />} />
