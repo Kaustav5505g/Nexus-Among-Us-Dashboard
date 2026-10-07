@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Database-backed player portal**: Added validated Team ID/player-name sign-in and session refresh backed by Supabase, including current team role, room allocation, and event session details. Configured the separate login, admin, and player Vite pages and local API proxy.
+- **Supabase environment configuration**: Backend and Vite load the repository-root `.env`; checked-in examples contain placeholders only.
+- **Rooms and powers schema**: Added the rooms/powers migration and database-backed admin powers and room management support.
 - **Room-Level Impostor Allotment Engine**:
   - Added support for rooms containing any number of teams ($N$ teams per room), where 1 entire team in the room is designated as the **IMPOSTOR** team while the remaining teams act as **CREWMATE** teams.
   - **🎲 Random Impostor Roll**: 1-click cryptographically secure random roll using `window.crypto.getRandomValues` to select 1 team out of all teams in that room as the Impostor.

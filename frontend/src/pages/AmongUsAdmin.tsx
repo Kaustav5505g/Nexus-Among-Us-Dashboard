@@ -25,10 +25,18 @@ import {
   Dices,
   History,
   Eye,
+  Pause,
+  Play,
+  RotateCcw,
+  Target,
+  ArrowUpRight,
+  Sliders,
+  Wrench,
 } from 'lucide-react';
 import { useAdminAuth } from '../context/AdminAuthContext';
-import { Team, RoomRecord, PlayerMember, AdminUser, AdminRole, ActivityLogItem } from '../types';
+import { Team, RoomRecord, PlayerMember, AdminUser, AdminRole, ActivityLogItem, ImpostorPowerPort } from '../types';
 import { AllocationDatabase } from '../lib/gameDatabase';
+import { isRootMasterAccount, isCurrentAdityaUser } from '../utils/permissions';
 
 
 export default function AmongUsAdmin() {
@@ -49,12 +57,43 @@ export default function AmongUsAdmin() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [staffUsers, setStaffUsers] = useState<AdminUser[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLogItem[]>([]);
-  const [activeTab, setActiveTab] = useState<'allocation' | 'teams' | 'rooms' | 'users' | 'logs'>('allocation');
+  const [activeTab, setActiveTab] = useState<'allocation' | 'teams' | 'rooms' | 'powers' | 'users' | 'logs'>('allocation');
   const [searchQuery, setSearchQuery] = useState('');
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [logSearchQuery, setLogSearchQuery] = useState('');
   const [logFilter, setLogFilter] = useState<'all' | 'power' | 'impostor_assign' | 'sabotage' | 'login' | 'system'>('all');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // -------------------------------------------------------------
+  // POWERS LIBRARY DASHBOARD & POWERSET MANAGEMENT STATE
+  // -------------------------------------------------------------
+  const [powerLibrary, setPowerLibrary] = useState<Omit<ImpostorPowerPort, 'port'>[]>([]);
+  const [libraryModalOpen, setLibraryModalOpen] = useState(false);
+  const [editingLibraryPower, setEditingLibraryPower] = useState<Omit<ImpostorPowerPort, 'port'> | null>(null);
+  const [powerSearchQuery, setPowerSearchQuery] = useState('');
+  const [powerFilterScope, setPowerFilterScope] = useState<'all' | 'targeted' | 'room'>('all');
+  const [libraryForm, setLibraryForm] = useState<{
+    id: string;
+    name: string;
+    description: string;
+    cooldownSeconds: number;
+    durationSeconds: number;
+    targetRequired: boolean;
+    status: 'ready' | 'paused' | 'disabled';
+  }>({
+    id: '',
+    name: '',
+    description: '',
+    cooldownSeconds: 30,
+    durationSeconds: 20,
+    targetRequired: true,
+    status: 'ready',
+  });
+
+  // -------------------------------------------------------------
+  // FULL ROOM POPUP / SETTINGS INSPECTION MODAL STATE
+  // -------------------------------------------------------------
+  const [selectedDetailRoom, setSelectedDetailRoom] = useState<RoomRecord | null>(null);
 
 
   // -------------------------------------------------------------
@@ -115,6 +154,18 @@ export default function AmongUsAdmin() {
     setTeams(AllocationDatabase.getTeams());
     setStaffUsers(AllocationDatabase.getStaffUsers());
     setActivityLogs(AllocationDatabase.getLogs());
+    setPowerLibrary(AllocationDatabase.getPowerLibrary());
+
+    // Background sync from Supabase if connected
+    AllocationDatabase.syncAllFromSupabase().then(res => {
+      if (res.roomsCount > 0 || res.teamsCount > 0) {
+        setRooms(AllocationDatabase.getRooms());
+        setTeams(AllocationDatabase.getTeams());
+        setStaffUsers(AllocationDatabase.getStaffUsers());
+        setActivityLogs(AllocationDatabase.getLogs());
+        setPowerLibrary(AllocationDatabase.getPowerLibrary());
+      }
+    }).catch(() => {});
 
     // Auto-poll logs so live player actions & power activations display immediately
     const pollLogs = setInterval(() => {
@@ -156,6 +207,190 @@ export default function AmongUsAdmin() {
     setActivityLogs(AllocationDatabase.getLogs());
     const team = updated.find(t => t.id === teamId);
     notify(`${team?.name} is now ${newStatus ? 'an IMPOSTOR' : 'a CREWMATE'}`);
+  };
+
+  // -------------------------------------------------------------
+  // 3-PORT POWER SYSTEM ADMIN CONTROLS
+  // -------------------------------------------------------------
+  const [powerModalOpen, setPowerModalOpen] = useState(false);
+  const [editingPortTeam, setEditingPortTeam] = useState<Team | null>(null);
+  const [editingPortIndex, setEditingPortIndex] = useState<1 | 2 | 3>(1);
+  const [powerForm, setPowerForm] = useState<{
+    selectedLibraryPower: string;
+    name: string;
+    description: string;
+    cooldownSeconds: number;
+    durationSeconds: number;
+    targetRequired: boolean;
+  }>({
+    selectedLibraryPower: '',
+    name: '',
+    description: '',
+    cooldownSeconds: 30,
+    durationSeconds: 20,
+    targetRequired: true,
+  });
+
+  const handlePausePowerPort = (teamId: string, portIndex: 1 | 2 | 3, currentStatus: string) => {
+    const isPaused = currentStatus === 'paused';
+    const updated = AllocationDatabase.pausePowerPort(teamId, portIndex, !isPaused, user?.name);
+    setTeams(updated);
+    setActivityLogs(AllocationDatabase.getLogs());
+    notify(!isPaused ? `⏸️ Paused Port ${portIndex}` : `▶️ Resumed Port ${portIndex}`);
+  };
+
+  const handleDeletePowerPort = (teamId: string, portIndex: 1 | 2 | 3) => {
+    const updated = AllocationDatabase.deletePowerPort(teamId, portIndex, user?.name);
+    setTeams(updated);
+    setActivityLogs(AllocationDatabase.getLogs());
+    notify(`🗑️ Cleared Port ${portIndex}`);
+  };
+
+  const handleResetCooldowns = (teamId: string) => {
+    const updated = AllocationDatabase.resetPowerCooldowns(teamId, user?.name);
+    setTeams(updated);
+    setActivityLogs(AllocationDatabase.getLogs());
+    notify(`⚡ Reset power cooldowns`);
+  };
+
+  const handleOpenPowerModal = (team: Team, portIndex: 1 | 2 | 3) => {
+    setEditingPortTeam(team);
+    setEditingPortIndex(portIndex);
+    const ports = team.powerPorts || AllocationDatabase.getTeamPowerPorts(team.id);
+    const port = ports.find(p => p.port === portIndex);
+    if (port && port.status !== 'disabled') {
+      setPowerForm({
+        selectedLibraryPower: port.id || '',
+        name: port.name,
+        description: port.description,
+        cooldownSeconds: port.cooldownSeconds,
+        durationSeconds: port.durationSeconds || 20,
+        targetRequired: port.targetRequired,
+      });
+    } else {
+      setPowerForm({
+        selectedLibraryPower: 'sabotage-lights',
+        name: 'Sabotage Lights',
+        description: 'Kill sector power, plunging the room into darkness.',
+        cooldownSeconds: 30,
+        durationSeconds: 20,
+        targetRequired: false,
+      });
+    }
+    setPowerModalOpen(true);
+  };
+
+  const handleSavePowerPort = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPortTeam || !powerForm.name.trim()) return;
+
+    const updated = AllocationDatabase.changePowerPort(
+      editingPortTeam.id,
+      editingPortIndex,
+      {
+        name: powerForm.name.trim(),
+        description: powerForm.description.trim(),
+        cooldownSeconds: Number(powerForm.cooldownSeconds) || 30,
+        durationSeconds: Number(powerForm.durationSeconds) || 20,
+        targetRequired: powerForm.targetRequired,
+      },
+      user?.name
+    );
+
+    setTeams(updated);
+    setActivityLogs(AllocationDatabase.getLogs());
+    setPowerModalOpen(false);
+    notify(`⚡ Equipped "${powerForm.name}" into Port ${editingPortIndex}`);
+  };
+
+  // -------------------------------------------------------------
+  // POWERS ARSENAL & LIBRARY MANAGEMENT HANDLERS
+  // -------------------------------------------------------------
+  const handleOpenCreatePower = () => {
+    setEditingLibraryPower(null);
+    setLibraryForm({
+      id: '',
+      name: '',
+      description: '',
+      cooldownSeconds: 30,
+      durationSeconds: 20,
+      targetRequired: true,
+      status: 'ready',
+    });
+    setLibraryModalOpen(true);
+  };
+
+  const handleOpenEditPower = (power: Omit<ImpostorPowerPort, 'port'>) => {
+    setEditingLibraryPower(power);
+    setLibraryForm({
+      id: power.id,
+      name: power.name,
+      description: power.description,
+      cooldownSeconds: power.cooldownSeconds,
+      durationSeconds: power.durationSeconds || 20,
+      targetRequired: power.targetRequired,
+      status: power.status || 'ready',
+    });
+    setLibraryModalOpen(true);
+  };
+
+  const handleSaveLibraryPower = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!libraryForm.name.trim()) {
+      notify('Power name is required.');
+      return;
+    }
+    const cleanId = editingLibraryPower
+      ? editingLibraryPower.id
+      : (libraryForm.id.trim() || libraryForm.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
+
+    const newPower: Omit<ImpostorPowerPort, 'port'> = {
+      id: cleanId,
+      name: libraryForm.name.trim(),
+      description: libraryForm.description.trim() || 'Custom station disruption power.',
+      cooldownSeconds: Number(libraryForm.cooldownSeconds) || 30,
+      durationSeconds: Number(libraryForm.durationSeconds) || 20,
+      targetRequired: !!libraryForm.targetRequired,
+      status: libraryForm.status || 'ready',
+    };
+
+    const updated = AllocationDatabase.addPowerToLibrary(newPower);
+    setPowerLibrary(updated);
+    AllocationDatabase.addLog({
+      type: 'power',
+      message: `${user?.name || 'Admin'} ${editingLibraryPower ? 'updated' : 'created'} power "${newPower.name}" in standard library.`,
+      severity: 'info',
+    });
+    setActivityLogs(AllocationDatabase.getLogs());
+    setLibraryModalOpen(false);
+    notify(`Power "${newPower.name}" saved to library.`);
+  };
+
+  const handleDeleteLibraryPower = (powerId: string, powerName: string) => {
+    if (!window.confirm(`Delete power "${powerName}" from library?`)) return;
+    const updated = AllocationDatabase.deletePowerFromLibrary(powerId);
+    setPowerLibrary(updated);
+    AllocationDatabase.addLog({
+      type: 'power',
+      message: `${user?.name || 'Admin'} deleted power "${powerName}" from standard library.`,
+      severity: 'warning',
+    });
+    setActivityLogs(AllocationDatabase.getLogs());
+    notify(`Power "${powerName}" deleted.`);
+  };
+
+  const handleToggleLibraryPowerStatus = (power: Omit<ImpostorPowerPort, 'port'>) => {
+    const nextStatus = power.status === 'paused' ? 'ready' : 'paused';
+    const updated = AllocationDatabase.addPowerToLibrary({ ...power, status: nextStatus });
+    setPowerLibrary(updated);
+    notify(`Power "${power.name}" is now ${nextStatus.toUpperCase()}`);
+  };
+
+  const handleResetLibraryDefaults = () => {
+    if (!window.confirm('Reset the powers library back to the official 6 standard powers? Any custom powers will be replaced.')) return;
+    const updated = AllocationDatabase.resetPowerLibraryToDefault();
+    setPowerLibrary(updated);
+    notify('Reset to standard powers library.');
   };
 
   const handleClearLogs = () => {
@@ -402,6 +637,10 @@ export default function AmongUsAdmin() {
   };
 
   const openEditUser = (targetUser: AdminUser) => {
+    if (isRootMasterAccount(targetUser) && !isAditya) {
+      notify('⛔ ACCESS DENIED: Root Master account is hidden and protected. Only Aditya can view or modify this account.');
+      return;
+    }
     setEditingUser(targetUser);
     setUserForm({
       name: targetUser.name,
@@ -423,28 +662,40 @@ export default function AmongUsAdmin() {
     }
 
     if (editingUser) {
-      const updated = AllocationDatabase.updateStaffUser(editingUser.id, {
-        name: userForm.name.trim(),
-        username: userForm.username.trim(),
-        facilitatorId: userForm.username.trim(),
-        email: userForm.email.trim(),
-        role: userForm.role,
-        password: userForm.password ? userForm.password.trim() : editingUser.password,
-        pocRoom: userForm.pocRoom.trim() || undefined,
-        title: userForm.title.trim() || undefined,
-      });
+      if (isRootMasterAccount(editingUser) && !isAditya) {
+        notify('⛔ ACCESS DENIED: Only Aditya can modify the Root Master account.');
+        return;
+      }
+      const updated = AllocationDatabase.updateStaffUser(
+        editingUser.id,
+        {
+          name: userForm.name.trim(),
+          username: isRootMasterAccount(editingUser) ? editingUser.username : userForm.username.trim(),
+          facilitatorId: isRootMasterAccount(editingUser) ? editingUser.facilitatorId : userForm.username.trim(),
+          email: userForm.email.trim(),
+          role: isRootMasterAccount(editingUser) ? 'super_admin' : userForm.role,
+          password: userForm.password ? userForm.password.trim() : editingUser.password,
+          pocRoom: userForm.pocRoom.trim() || undefined,
+          title: userForm.title.trim() || undefined,
+        },
+        user?.username
+      );
       setStaffUsers(updated);
       notify(`User ${userForm.name} updated.`);
     } else {
-      const cleanUsername = userForm.username.trim();
-      if (staffUsers.some(u => u.username.toLowerCase() === cleanUsername.toLowerCase())) {
+      const cleanUsername = userForm.username.trim().toLowerCase();
+      if (cleanUsername === 'nx-masteradmin' || userForm.name.trim().toLowerCase() === 'aditya goyal') {
+        notify('⛔ Identifier reserved for Root Master administrator.');
+        return;
+      }
+      if (staffUsers.some(u => u.username.toLowerCase() === cleanUsername)) {
         notify('A user with this Facilitator ID already exists.');
         return;
       }
       AllocationDatabase.createStaffUser({
         name: userForm.name.trim(),
-        username: cleanUsername,
-        facilitatorId: cleanUsername,
+        username: userForm.username.trim(),
+        facilitatorId: userForm.username.trim(),
         email: userForm.email.trim(),
         role: userForm.role,
         password: userForm.password.trim() || 'pass2026',
@@ -460,11 +711,15 @@ export default function AmongUsAdmin() {
   const handleQuickRoleChange = (userId: string, newRole: AdminRole) => {
     const target = staffUsers.find(u => u.id === userId);
     if (!target) return;
+    if (isRootMasterAccount(target)) {
+      notify('⛔ Root Master Admin clearance is permanent and cannot be altered.');
+      return;
+    }
     if (target.id === 'NX-SUPER-01' || target.role === 'super_admin') {
       notify('Master Admin clearance cannot be altered.');
       return;
     }
-    const updated = AllocationDatabase.updateStaffUser(userId, { role: newRole });
+    const updated = AllocationDatabase.updateStaffUser(userId, { role: newRole }, user?.username);
     setStaffUsers(updated);
     notify(`${target.name} role changed to ${newRole === 'admin' ? 'Sub-Admin' : 'Moderator'}.`);
   };
@@ -472,6 +727,10 @@ export default function AmongUsAdmin() {
   const handleDeleteUser = (userId: string) => {
     const target = staffUsers.find(u => u.id === userId);
     if (!target) return;
+    if (isRootMasterAccount(target)) {
+      notify('⛔ Root Master account is protected and cannot be deleted.');
+      return;
+    }
     if (target.id === 'NX-SUPER-01' || target.role === 'super_admin') {
       notify('Master Admin cannot be deleted.');
       return;
@@ -535,24 +794,34 @@ export default function AmongUsAdmin() {
   };
 
   // -------------------------------------------------------------
-  // COMPUTED COUNTS
+  // ROOT MASTER GUARDIAN & COMPUTED COUNTS
   // -------------------------------------------------------------
+  const isAditya = useMemo(() => isCurrentAdityaUser(user), [user]);
+
+  // Root Master account (Aditya Goyal) is completely hidden from all other admins & moderators
+  const visibleStaffUsers = useMemo(() => {
+    if (isAditya) {
+      return staffUsers;
+    }
+    return staffUsers.filter(u => !isRootMasterAccount(u));
+  }, [staffUsers, isAditya]);
+
   const masterAdminCount = useMemo(() => {
-    return staffUsers.filter(u => u.role === 'super_admin').length;
-  }, [staffUsers]);
+    return visibleStaffUsers.filter(u => u.role === 'super_admin').length;
+  }, [visibleStaffUsers]);
 
   const subAdminCount = useMemo(() => {
-    return staffUsers.filter(u => u.role === 'admin').length;
-  }, [staffUsers]);
+    return visibleStaffUsers.filter(u => u.role === 'admin').length;
+  }, [visibleStaffUsers]);
 
   const moderatorCount = useMemo(() => {
-    return staffUsers.filter(u => u.role === 'moderator').length;
-  }, [staffUsers]);
+    return visibleStaffUsers.filter(u => u.role === 'moderator').length;
+  }, [visibleStaffUsers]);
 
   const filteredUsers = useMemo(() => {
-    if (!userSearchQuery.trim()) return staffUsers;
+    if (!userSearchQuery.trim()) return visibleStaffUsers;
     const q = userSearchQuery.toLowerCase();
-    return staffUsers.filter(
+    return visibleStaffUsers.filter(
       u =>
         u.name.toLowerCase().includes(q) ||
         u.username.toLowerCase().includes(q) ||
@@ -560,7 +829,7 @@ export default function AmongUsAdmin() {
         u.role.toLowerCase().includes(q) ||
         (u.pocRoom && u.pocRoom.toLowerCase().includes(q))
     );
-  }, [staffUsers, userSearchQuery]);
+  }, [visibleStaffUsers, userSearchQuery]);
 
   const impostorTeamsCount = useMemo(() => {
     return teams.filter(t => t.isImpostor).length;
@@ -611,6 +880,28 @@ export default function AmongUsAdmin() {
       );
     });
   }, [teams, searchQuery]);
+
+  const targetedPowersCount = useMemo(() => {
+    return powerLibrary.filter(p => p.targetRequired).length;
+  }, [powerLibrary]);
+
+  const roomWidePowersCount = useMemo(() => {
+    return powerLibrary.filter(p => !p.targetRequired).length;
+  }, [powerLibrary]);
+
+  const filteredPowerLibrary = useMemo(() => {
+    return powerLibrary.filter(p => {
+      if (powerFilterScope === 'targeted' && !p.targetRequired) return false;
+      if (powerFilterScope === 'room' && p.targetRequired) return false;
+      if (!powerSearchQuery.trim()) return true;
+      const q = powerSearchQuery.toLowerCase();
+      return (
+        p.name.toLowerCase().includes(q) ||
+        p.id.toLowerCase().includes(q) ||
+        p.description.toLowerCase().includes(q)
+      );
+    });
+  }, [powerLibrary, powerFilterScope, powerSearchQuery]);
 
   const teamsByRoom = useMemo(() => {
     const map: Record<string, Team[]> = {};
@@ -752,7 +1043,7 @@ export default function AmongUsAdmin() {
       {/* Main Container */}
       <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
         {/* Simple Summary Metric Cards */}
-        <div className={`grid ${user?.role === 'super_admin' ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4'} gap-3 text-center`}>
+        <div className={`grid ${user?.role === 'super_admin' ? 'grid-cols-2 sm:grid-cols-6' : 'grid-cols-2 sm:grid-cols-5'} gap-3 text-center`}>
           <div className="p-4 border border-neutral-200 rounded-lg bg-neutral-50">
             <span className="text-xs text-neutral-500 uppercase font-medium block">Rooms</span>
             <div className="text-2xl font-bold mt-0.5">{rooms.length}</div>
@@ -768,6 +1059,10 @@ export default function AmongUsAdmin() {
           <div className="p-4 border border-neutral-200 rounded-lg bg-neutral-50">
             <span className="text-xs text-neutral-500 uppercase font-medium block">Impostors Active</span>
             <div className="text-2xl font-bold mt-0.5">{impostorTeamsCount}</div>
+          </div>
+          <div className="p-4 border border-neutral-200 rounded-lg bg-neutral-50">
+            <span className="text-xs text-neutral-500 uppercase font-medium block">Powers Arsenal</span>
+            <div className="text-2xl font-bold mt-0.5">{powerLibrary.length}</div>
           </div>
           {user?.role === 'super_admin' && (
             <div className="p-4 border border-neutral-200 rounded-lg bg-neutral-50">
@@ -812,6 +1107,18 @@ export default function AmongUsAdmin() {
             3. Rooms & POCs ({rooms.length})
           </button>
 
+          <button
+            onClick={() => setActiveTab('powers')}
+            className={`flex-1 py-2 px-2 rounded-md transition flex items-center justify-center gap-1.5 whitespace-nowrap ${
+              activeTab === 'powers'
+                ? 'bg-black text-white shadow-sm'
+                : 'text-neutral-700 hover:text-black'
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5" />
+            <span>4. Powers Arsenal ({powerLibrary.length})</span>
+          </button>
+
           {user?.role === 'super_admin' && (
             <button
               onClick={() => setActiveTab('users')}
@@ -822,7 +1129,7 @@ export default function AmongUsAdmin() {
               }`}
             >
               <Crown className="w-3.5 h-3.5" />
-              <span>4. User Panel ({staffUsers.length})</span>
+              <span>5. User Panel ({staffUsers.length})</span>
             </button>
           )}
 
@@ -835,7 +1142,7 @@ export default function AmongUsAdmin() {
             }`}
           >
             <History className="w-3.5 h-3.5" />
-            <span>5. Activity Logs ({activityLogs.length})</span>
+            <span>{user?.role === 'super_admin' ? '6' : '5'}. Activity Logs ({activityLogs.length})</span>
           </button>
         </div>
 
@@ -933,9 +1240,20 @@ export default function AmongUsAdmin() {
                         <span className="font-bold text-base">
                           {room.name}
                         </span>
-                        <span className="px-2 py-0.5 border border-neutral-200 rounded text-[11px] font-medium bg-neutral-50">
-                          {room.zone}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="px-2 py-0.5 border border-neutral-200 rounded text-[11px] font-medium bg-neutral-50">
+                            {room.zone}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedDetailRoom(room)}
+                            title="Open Full Room Details & Settings"
+                            className="px-2 py-0.5 border border-neutral-300 hover:border-black rounded bg-white hover:bg-neutral-100 text-[11px] font-semibold transition flex items-center gap-1 shadow-sm"
+                          >
+                            <span>Inspect</span>
+                            <ArrowUpRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
 
                       <div className="text-xs text-neutral-600">
@@ -1000,6 +1318,135 @@ export default function AmongUsAdmin() {
                               ))}
                             </select>
                           </div>
+
+                          {/* 3 Active Power Ports for the Impostor Team */}
+                          {currentImpostorInRoom && (() => {
+                            const ports = currentImpostorInRoom.powerPorts && currentImpostorInRoom.powerPorts.length === 3
+                              ? currentImpostorInRoom.powerPorts
+                              : AllocationDatabase.getTeamPowerPorts(currentImpostorInRoom.id);
+
+                            return (
+                              <div className="pt-2 border-t border-neutral-300 space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-neutral-800">
+                                    <Zap className="w-3 h-3 text-black" />
+                                    <span>3 Power Ports</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleResetCooldowns(currentImpostorInRoom.id)}
+                                    title="Reset cooldowns on all 3 ports"
+                                    className="text-[10px] text-neutral-600 hover:text-black flex items-center gap-1 font-medium underline underline-offset-2"
+                                  >
+                                    <RotateCcw className="w-2.5 h-2.5" />
+                                    <span>Reset CD</span>
+                                  </button>
+                                </div>
+
+                                <div className="space-y-1">
+                                  {ports.map(port => {
+                                    const isPaused = port.status === 'paused';
+                                    const isDisabled = port.status === 'disabled';
+                                    const now = Date.now();
+                                    const lastUsed = port.lastUsedAt ? new Date(port.lastUsedAt).getTime() : 0;
+                                    const elapsed = (now - lastUsed) / 1000;
+                                    const onCooldown = lastUsed > 0 && elapsed < port.cooldownSeconds;
+                                    const remainingCd = onCooldown ? Math.ceil(port.cooldownSeconds - elapsed) : 0;
+
+                                    return (
+                                      <div
+                                        key={port.port}
+                                        className={`p-1.5 border rounded text-[11px] transition flex flex-col gap-1 ${
+                                          isPaused
+                                            ? 'border-neutral-300 bg-neutral-200/80 text-neutral-700'
+                                            : isDisabled
+                                            ? 'border-neutral-200 bg-neutral-50 text-neutral-400'
+                                            : onCooldown
+                                            ? 'border-neutral-300 bg-neutral-100 text-neutral-800'
+                                            : 'border-neutral-300 bg-white text-black shadow-2xs'
+                                        }`}
+                                      >
+                                        <div className="flex items-center justify-between gap-1">
+                                          <div className="flex items-center gap-1 min-w-0">
+                                            <span className="font-mono font-bold text-[9px] px-1 bg-black text-white rounded">
+                                              P{port.port}
+                                            </span>
+                                            <span className="font-bold truncate text-[11px]" title={port.name}>
+                                              {port.name}
+                                            </span>
+                                          </div>
+
+                                          <div className="flex items-center gap-1 shrink-0">
+                                            {isPaused ? (
+                                              <span className="px-1 py-0.2 bg-neutral-800 text-white font-mono text-[9px] rounded font-semibold uppercase">
+                                                PAUSED
+                                              </span>
+                                            ) : isDisabled ? (
+                                              <span className="px-1 py-0.2 bg-neutral-200 text-neutral-600 font-mono text-[9px] rounded font-semibold uppercase">
+                                                EMPTY
+                                              </span>
+                                            ) : onCooldown ? (
+                                              <span className="px-1 py-0.2 border border-black text-black font-mono text-[9px] rounded font-bold">
+                                                CD {remainingCd}s
+                                              </span>
+                                            ) : (
+                                              <span className="px-1 py-0.2 bg-black text-white font-mono text-[9px] rounded font-bold uppercase">
+                                                READY
+                                              </span>
+                                            )}
+                                            <span className="text-[10px] text-neutral-500 font-mono">
+                                              {port.cooldownSeconds}s
+                                            </span>
+                                          </div>
+                                        </div>
+
+                                        <div className="flex items-center justify-between gap-1 pt-1 border-t border-neutral-200/60">
+                                          <span className="text-[10px] text-neutral-500 truncate" title={port.description}>
+                                            {port.targetRequired ? '🎯 Crewmate Target' : '🌐 Room-Wide'}
+                                          </span>
+
+                                          <div className="flex items-center gap-1">
+                                            <button
+                                              type="button"
+                                              onClick={() => handlePausePowerPort(currentImpostorInRoom.id, port.port, port.status)}
+                                              title={isPaused ? 'Resume Power' : 'Pause Power (stops Impostor)'}
+                                              className={`px-1.5 py-0.5 rounded text-[10px] font-medium border flex items-center gap-0.5 transition ${
+                                                isPaused
+                                                  ? 'border-black bg-black text-white'
+                                                  : 'border-neutral-300 hover:border-black text-neutral-700'
+                                              }`}
+                                            >
+                                              {isPaused ? <Play className="w-2.5 h-2.5" /> : <Pause className="w-2.5 h-2.5" />}
+                                              <span>{isPaused ? 'Resume' : 'Pause'}</span>
+                                            </button>
+
+                                            <button
+                                              type="button"
+                                              onClick={() => handleOpenPowerModal(currentImpostorInRoom, port.port)}
+                                              title="Change Power Configuration"
+                                              className="px-1.5 py-0.5 rounded text-[10px] font-medium border border-neutral-300 hover:border-black text-neutral-700 flex items-center gap-0.5 transition"
+                                            >
+                                              <Edit2 className="w-2.5 h-2.5" />
+                                              <span>Change</span>
+                                            </button>
+
+                                            <button
+                                              type="button"
+                                              onClick={() => handleDeletePowerPort(currentImpostorInRoom.id, port.port)}
+                                              title="Clear Power Port"
+                                              className="px-1 py-0.5 rounded text-[10px] text-neutral-400 hover:text-red-600 transition"
+                                            >
+                                              <Trash2 className="w-2.5 h-2.5" />
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       );
                     })()}
@@ -1268,9 +1715,20 @@ export default function AmongUsAdmin() {
                 >
                   <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
                     <span className="font-bold text-base">{room.name}</span>
-                    <span className="px-2 py-0.5 border border-neutral-200 rounded text-[11px] bg-neutral-50">
-                      {room.zone}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="px-2 py-0.5 border border-neutral-200 rounded text-[11px] bg-neutral-50">
+                        {room.zone}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDetailRoom(room)}
+                        title="Open Full Room Details & Settings"
+                        className="px-2 py-0.5 border border-neutral-300 hover:border-black rounded bg-white hover:bg-neutral-100 text-[11px] font-semibold transition flex items-center gap-1 shadow-sm"
+                      >
+                        <span>Inspect</span>
+                        <ArrowUpRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="space-y-1 text-xs text-neutral-700">
@@ -1307,7 +1765,203 @@ export default function AmongUsAdmin() {
         )}
 
         {/* ========================================================= */}
-        {/* TAB 4: USER & ROLE MANAGEMENT (MASTER ADMIN ONLY) */}
+        {/* TAB 4: POWERS ARSENAL & POWERSET SYSTEM */}
+        {/* ========================================================= */}
+        {activeTab === 'powers' && (
+          <div className="space-y-5">
+            {/* Action Bar */}
+            <div className="p-4 border border-neutral-200 rounded-lg bg-neutral-50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-black" />
+                  <span className="font-bold text-sm">Powers Arsenal & Powerset System</span>
+                  <span className="px-2 py-0.5 bg-black text-white rounded text-[10px] font-mono uppercase tracking-wider">
+                    Dynamic Game Arsenal
+                  </span>
+                </div>
+                <span className="text-neutral-500 block mt-0.5">
+                  Configure and create powers for Impostor teams. Set custom cooldowns, durations, and target requirements.
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleResetLibraryDefaults}
+                  className="px-3 py-1.5 border border-neutral-300 hover:border-black rounded-md font-medium text-xs transition flex items-center gap-1.5 bg-white"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset Defaults</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleOpenCreatePower}
+                  className="px-3.5 py-1.5 bg-black text-white hover:bg-neutral-800 rounded-md font-medium text-xs transition flex items-center gap-1.5 shadow-sm"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Create New Power</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Metrics */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div className="p-3.5 border border-neutral-300 rounded-lg bg-white">
+                <span className="font-medium text-neutral-500 uppercase text-[10px] tracking-wider block">Total Powers</span>
+                <div className="text-2xl font-bold mt-1 text-black">{powerLibrary.length}</div>
+                <span className="text-[11px] text-neutral-500 block mt-0.5">Available for 3-port slots</span>
+              </div>
+              <div className="p-3.5 border border-neutral-300 rounded-lg bg-white">
+                <span className="font-medium text-neutral-500 uppercase text-[10px] tracking-wider block">Targeted Strikes</span>
+                <div className="text-2xl font-bold mt-1 text-black">{targetedPowersCount}</div>
+                <span className="text-[11px] text-neutral-500 block mt-0.5">Freeze specific squads</span>
+              </div>
+              <div className="p-3.5 border border-neutral-300 rounded-lg bg-white">
+                <span className="font-medium text-neutral-500 uppercase text-[10px] tracking-wider block">Room-Wide / AOE</span>
+                <div className="text-2xl font-bold mt-1 text-black">{roomWidePowersCount}</div>
+                <span className="text-[11px] text-neutral-500 block mt-0.5">Affects all teams in sector</span>
+              </div>
+              <div className="p-3.5 border border-neutral-300 rounded-lg bg-white">
+                <span className="font-medium text-neutral-500 uppercase text-[10px] tracking-wider block">Active Ready</span>
+                <div className="text-2xl font-bold mt-1 text-black">{powerLibrary.filter(p => p.status !== 'paused').length}</div>
+                <span className="text-[11px] text-neutral-500 block mt-0.5">Ready for selection</span>
+              </div>
+            </div>
+
+            {/* Filter and Search Bar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+                <input
+                  type="text"
+                  value={powerSearchQuery}
+                  onChange={e => setPowerSearchQuery(e.target.value)}
+                  placeholder="Search power name, ID or description..."
+                  className="w-full pl-9 pr-4 py-2 border border-neutral-300 rounded-lg text-xs outline-none focus:border-black"
+                />
+              </div>
+
+              <div className="flex items-center gap-1 bg-neutral-100 p-1 border border-neutral-200 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setPowerFilterScope('all')}
+                  className={`px-3 py-1 rounded text-xs font-medium transition ${
+                    powerFilterScope === 'all' ? 'bg-black text-white shadow-sm' : 'text-neutral-600 hover:text-black'
+                  }`}
+                >
+                  All ({powerLibrary.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPowerFilterScope('targeted')}
+                  className={`px-3 py-1 rounded text-xs font-medium transition ${
+                    powerFilterScope === 'targeted' ? 'bg-black text-white shadow-sm' : 'text-neutral-600 hover:text-black'
+                  }`}
+                >
+                  Targeted ({targetedPowersCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPowerFilterScope('room')}
+                  className={`px-3 py-1 rounded text-xs font-medium transition ${
+                    powerFilterScope === 'room' ? 'bg-black text-white shadow-sm' : 'text-neutral-600 hover:text-black'
+                  }`}
+                >
+                  Room-Wide ({roomWidePowersCount})
+                </button>
+              </div>
+            </div>
+
+            {/* Powers Card Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredPowerLibrary.map(power => {
+                const isPaused = power.status === 'paused';
+                return (
+                  <div
+                    key={power.id}
+                    className={`border rounded-lg bg-white p-4 space-y-3 text-xs flex flex-col justify-between shadow-sm transition ${
+                      isPaused ? 'border-dashed border-neutral-400 opacity-75' : 'border-neutral-200 hover:border-black'
+                    }`}
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between gap-2 border-b border-neutral-100 pb-2">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-sm block">{power.name}</span>
+                            {isPaused && (
+                              <span className="px-1.5 py-0.5 bg-neutral-200 text-neutral-700 text-[10px] font-mono uppercase font-bold rounded">
+                                Paused
+                              </span>
+                            )}
+                          </div>
+                          <span className="font-mono text-[10px] text-neutral-500">
+                            #{power.id}
+                          </span>
+                        </div>
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider font-semibold ${
+                            power.targetRequired
+                              ? 'bg-black text-white'
+                              : 'bg-neutral-100 border border-neutral-400 text-black'
+                          }`}
+                        >
+                          {power.targetRequired ? '🎯 Target Team' : '🌐 Room-Wide'}
+                        </span>
+                      </div>
+
+                      <p className="text-neutral-600 text-xs leading-relaxed min-h-[36px]">
+                        {power.description}
+                      </p>
+
+                      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-neutral-100 font-mono text-[11px]">
+                        <div className="p-1.5 bg-neutral-50 border border-neutral-200 rounded text-center">
+                          <span className="text-neutral-400 text-[10px] block uppercase">Cooldown</span>
+                          <span className="font-bold text-black">{power.cooldownSeconds}s</span>
+                        </div>
+                        <div className="p-1.5 bg-neutral-50 border border-neutral-200 rounded text-center">
+                          <span className="text-neutral-400 text-[10px] block uppercase">Duration</span>
+                          <span className="font-bold text-black">{power.durationSeconds || 20}s</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 pt-2 border-t border-neutral-100">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleLibraryPowerStatus(power)}
+                        className="flex-1 py-1 border border-neutral-300 hover:border-black rounded text-[11px] font-medium transition flex items-center justify-center gap-1"
+                      >
+                        {isPaused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
+                        <span>{isPaused ? 'Resume' : 'Pause'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditPower(power)}
+                        className="px-3 py-1 border border-neutral-300 hover:border-black rounded text-[11px] font-medium transition flex items-center gap-1"
+                      >
+                        <Edit2 className="w-3 h-3" />
+                        <span>Edit</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteLibraryPower(power.id, power.name)}
+                        className="p-1.5 border border-neutral-300 hover:border-black rounded text-neutral-600 hover:text-black transition"
+                        title="Delete from Library"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* TAB 5: USER & ROLE MANAGEMENT (MASTER ADMIN ONLY) */}
         {/* ========================================================= */}
         {activeTab === 'users' && user?.role === 'super_admin' && (
           <div className="space-y-5">
@@ -1389,34 +2043,60 @@ export default function AmongUsAdmin() {
             {/* User List / Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {filteredUsers.map(staff => {
+                const isRootMaster = isRootMasterAccount(staff);
                 const isMaster = staff.role === 'super_admin';
                 const isSubAdmin = staff.role === 'admin';
 
                 return (
                   <div
                     key={staff.id}
-                    className="p-4 border border-neutral-200 rounded-lg bg-white space-y-3 text-xs flex flex-col justify-between hover:border-neutral-400 transition"
+                    className={`p-4 border rounded-lg bg-white space-y-3 text-xs flex flex-col justify-between transition ${
+                      isRootMaster
+                        ? 'border-black ring-1 ring-black bg-neutral-50/50 shadow-sm'
+                        : 'border-neutral-200 hover:border-neutral-400'
+                    }`}
                   >
                     <div className="space-y-2">
                       <div className="flex items-start justify-between gap-2 border-b border-neutral-100 pb-2">
                         <div>
-                          <span className="font-bold text-sm block">{staff.name}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-sm block">{staff.name}</span>
+                            {isRootMaster && (
+                              <span className="inline-flex items-center px-1.5 py-0.2 text-[9px] font-mono bg-black text-white rounded">
+                                HIDDEN
+                              </span>
+                            )}
+                          </div>
                           <span className="font-mono text-[11px] text-neutral-500">
                             ID: {staff.username || staff.id}
                           </span>
                         </div>
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider ${
-                            isMaster
+                            isRootMaster
+                              ? 'bg-black text-white font-bold'
+                              : isMaster
                               ? 'bg-black text-white'
                               : isSubAdmin
                               ? 'bg-neutral-100 border border-neutral-400 text-black font-semibold'
                               : 'bg-neutral-50 border border-neutral-200 text-neutral-700'
                           }`}
                         >
-                          {isMaster ? 'Master Admin' : isSubAdmin ? 'Sub-Admin' : 'Moderator'}
+                          {isRootMaster ? 'ROOT MASTER' : isMaster ? 'Master Admin' : isSubAdmin ? 'Sub-Admin' : 'Moderator'}
                         </span>
                       </div>
+
+                      {isRootMaster && (
+                        <div className="p-2 bg-neutral-900 text-white rounded text-[11px] space-y-0.5">
+                          <div className="font-semibold flex items-center gap-1.5 text-xs text-white">
+                            <Shield className="w-3.5 h-3.5 text-white" />
+                            Hidden Root Master Account
+                          </div>
+                          <div className="text-neutral-300 text-[10px] leading-tight">
+                            Completely invisible to other admins, moderators, and the website. Only you can view or edit this account.
+                          </div>
+                        </div>
+                      )}
 
                       <div className="space-y-1 text-neutral-600 text-xs">
                         {staff.email && (
@@ -1457,6 +2137,10 @@ export default function AmongUsAdmin() {
                             <option value="moderator">Moderator</option>
                           </select>
                         </div>
+                      ) : isRootMaster ? (
+                        <div className="text-[11px] text-black font-semibold flex items-center gap-1">
+                          <ShieldCheck className="w-3.5 h-3.5 text-black" /> Root Master (Private & Protected)
+                        </div>
                       ) : (
                         <div className="text-[11px] text-neutral-400 italic">
                           Primary Master Admin account (Protected)
@@ -1466,15 +2150,20 @@ export default function AmongUsAdmin() {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => openEditUser(staff)}
-                          className="flex-1 py-1 border border-neutral-300 hover:border-black rounded font-medium text-xs transition"
+                          disabled={isRootMaster && !isAditya}
+                          className={`flex-1 py-1 border rounded font-medium text-xs transition ${
+                            isRootMaster && !isAditya
+                              ? 'border-neutral-200 text-neutral-300 cursor-not-allowed'
+                              : 'border-neutral-300 hover:border-black'
+                          }`}
                         >
                           Edit
                         </button>
                         <button
                           onClick={() => handleDeleteUser(staff.id)}
-                          disabled={isMaster}
+                          disabled={isMaster || isRootMaster}
                           className={`px-3 py-1 border rounded font-medium text-xs transition ${
-                            isMaster
+                            isMaster || isRootMaster
                               ? 'border-neutral-200 text-neutral-300 cursor-not-allowed'
                               : 'border-neutral-300 hover:border-black text-black'
                           }`}
@@ -1871,12 +2560,28 @@ export default function AmongUsAdmin() {
           <div className="w-full max-w-sm bg-white border border-neutral-300 rounded-xl p-5 shadow-lg space-y-4 text-xs font-sans">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
               <span className="font-bold text-sm">
-                {editingUser ? `Edit ${editingUser.name}` : `Create ${userForm.role === 'admin' ? 'Sub-Admin' : 'Moderator'}`}
+                {editingUser
+                  ? isRootMasterAccount(editingUser)
+                    ? 'Edit Root Master Profile (Aditya Goyal)'
+                    : `Edit ${editingUser.name}`
+                  : `Create ${userForm.role === 'admin' ? 'Sub-Admin' : 'Moderator'}`}
               </span>
               <button onClick={() => setUserModalOpen(false)} className="text-neutral-400 hover:text-black">
                 <X className="w-4 h-4" />
               </button>
             </div>
+
+            {editingUser && isRootMasterAccount(editingUser) && (
+              <div className="p-2.5 bg-neutral-900 text-white rounded-lg text-xs space-y-1">
+                <div className="font-semibold flex items-center gap-1.5 text-white">
+                  <Shield className="w-3.5 h-3.5 text-white" />
+                  Root Master Account Protection
+                </div>
+                <div className="text-neutral-300 text-[11px] leading-tight">
+                  This account is hidden from all other admins and the website. Only you can view or modify your master credentials.
+                </div>
+              </div>
+            )}
 
             <form onSubmit={handleSaveUser} className="space-y-3">
               <div className="space-y-1">
@@ -1884,13 +2589,15 @@ export default function AmongUsAdmin() {
                 <select
                   value={userForm.role}
                   onChange={e => setUserForm({ ...userForm, role: e.target.value as AdminRole })}
-                  disabled={editingUser?.role === 'super_admin'}
-                  className="w-full border border-neutral-300 rounded-md px-3 py-1.5 text-xs outline-none bg-white font-medium"
+                  disabled={editingUser?.role === 'super_admin' || (!!editingUser && isRootMasterAccount(editingUser))}
+                  className="w-full border border-neutral-300 rounded-md px-3 py-1.5 text-xs outline-none bg-white font-medium disabled:bg-neutral-100"
                 >
                   <option value="admin">Sub-Admin (Full Operations Access)</option>
                   <option value="moderator">Moderator (Sector POC / Check-In)</option>
                   {editingUser?.role === 'super_admin' && (
-                    <option value="super_admin">Master Admin</option>
+                    <option value="super_admin">
+                      {isRootMasterAccount(editingUser) ? 'Root Master Admin (Protected)' : 'Master Admin'}
+                    </option>
                   )}
                 </select>
               </div>
@@ -1915,7 +2622,8 @@ export default function AmongUsAdmin() {
                   onChange={e => setUserForm({ ...userForm, username: e.target.value })}
                   placeholder="e.g. NX-ADMIN-03 or rohan.admin"
                   required
-                  className="w-full border border-neutral-300 rounded-md px-3 py-1.5 text-xs outline-none focus:border-black font-mono"
+                  disabled={!!editingUser && isRootMasterAccount(editingUser)}
+                  className="w-full border border-neutral-300 rounded-md px-3 py-1.5 text-xs outline-none focus:border-black font-mono disabled:bg-neutral-100"
                 />
               </div>
 
@@ -1988,6 +2696,662 @@ export default function AmongUsAdmin() {
           </div>
         </div>
       )}
+
+      {/* Power Port Configuration Modal */}
+      {powerModalOpen && editingPortTeam && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-white text-black border border-black rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl">
+            <div className="flex items-center justify-between border-b border-neutral-200 pb-3">
+              <div>
+                <h3 className="font-bold text-sm flex items-center gap-1.5">
+                  <Zap className="w-4 h-4 text-black" />
+                  <span>Configure Power Port {editingPortIndex}</span>
+                </h3>
+                <span className="text-[11px] text-neutral-500 font-mono">
+                  Team: {editingPortTeam.name} ({editingPortTeam.teamCode || editingPortTeam.id})
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPowerModalOpen(false)}
+                className="p-1 hover:bg-neutral-100 rounded text-neutral-400 hover:text-black"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePowerPort} className="space-y-3.5 text-xs">
+              {/* Preset selection from Library */}
+              <div className="space-y-1">
+                <label className="block text-neutral-700 font-semibold text-[11px]">
+                  Choose Preset from Standard Powers:
+                </label>
+                <select
+                  value={powerForm.selectedLibraryPower}
+                  onChange={e => {
+                    const library = AllocationDatabase.getPowerLibrary();
+                    const libPower = library.find(p => p.id === e.target.value);
+                    if (libPower) {
+                      setPowerForm({
+                        selectedLibraryPower: libPower.id,
+                        name: libPower.name,
+                        description: libPower.description,
+                        cooldownSeconds: libPower.cooldownSeconds,
+                        durationSeconds: libPower.durationSeconds || 20,
+                        targetRequired: libPower.targetRequired,
+                      });
+                    } else {
+                      setPowerForm(prev => ({ ...prev, selectedLibraryPower: '' }));
+                    }
+                  }}
+                  className="w-full border border-neutral-300 rounded-md px-2.5 py-1.5 text-xs outline-none bg-white font-medium"
+                >
+                  <option value="">-- Custom Power --</option>
+                  {AllocationDatabase.getPowerLibrary().map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.cooldownSeconds}s CD, {p.targetRequired ? 'Targeted' : 'Room'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-neutral-700 font-semibold text-[11px]">
+                  Power Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={powerForm.name}
+                  onChange={e => setPowerForm({ ...powerForm, name: e.target.value })}
+                  placeholder="e.g. Sabotage Lights, Terminal Freeze"
+                  className="w-full border border-neutral-300 rounded-md px-2.5 py-1.5 text-xs outline-none focus:border-black"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-neutral-700 font-semibold text-[11px]">
+                  Description / Effect
+                </label>
+                <textarea
+                  rows={2}
+                  value={powerForm.description}
+                  onChange={e => setPowerForm({ ...powerForm, description: e.target.value })}
+                  placeholder="Describe power effect..."
+                  className="w-full border border-neutral-300 rounded-md px-2.5 py-1.5 text-xs outline-none focus:border-black resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="block text-neutral-700 font-semibold text-[11px]">
+                    Cooldown (Seconds)
+                  </label>
+                  <input
+                    type="number"
+                    min={5}
+                    max={600}
+                    required
+                    value={powerForm.cooldownSeconds}
+                    onChange={e => setPowerForm({ ...powerForm, cooldownSeconds: parseInt(e.target.value) || 30 })}
+                    className="w-full border border-neutral-300 rounded-md px-2.5 py-1.5 text-xs outline-none focus:border-black font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-neutral-700 font-semibold text-[11px]">
+                    Duration (Seconds)
+                  </label>
+                  <input
+                    type="number"
+                    min={5}
+                    max={300}
+                    required
+                    value={powerForm.durationSeconds}
+                    onChange={e => setPowerForm({ ...powerForm, durationSeconds: parseInt(e.target.value) || 20 })}
+                    className="w-full border border-neutral-300 rounded-md px-2.5 py-1.5 text-xs outline-none focus:border-black font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="p-2 border border-neutral-200 rounded-md bg-neutral-50 flex items-center justify-between">
+                <div>
+                  <span className="font-semibold block text-[11px]">Target Specific Crewmate Team</span>
+                  <span className="text-[10px] text-neutral-500">
+                    If checked, Impostors must select a crewmate team in their room.
+                  </span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={powerForm.targetRequired}
+                  onChange={e => setPowerForm({ ...powerForm, targetRequired: e.target.checked })}
+                  className="w-4 h-4 accent-black cursor-pointer"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-200">
+                <button
+                  type="button"
+                  onClick={() => setPowerModalOpen(false)}
+                  className="px-3 py-1.5 border border-neutral-300 hover:border-black rounded-md font-medium text-xs transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-3.5 py-1.5 bg-black text-white hover:bg-neutral-800 rounded-md font-medium text-xs transition"
+                >
+                  Equip Port {editingPortIndex}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* CREATE / EDIT LIBRARY POWER MODAL */}
+      {/* ========================================================= */}
+      {libraryModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-white border border-black rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl">
+            <div className="flex items-center justify-between border-b border-neutral-200 pb-3">
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-black" />
+                <span className="font-bold text-sm">
+                  {editingLibraryPower ? 'Edit Power in Arsenal' : 'Create New Power in Arsenal'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLibraryModalOpen(false)}
+                className="p-1 hover:bg-neutral-100 rounded text-neutral-500 hover:text-black"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveLibraryPower} className="space-y-3.5 text-xs">
+              <div className="space-y-1">
+                <label className="block text-neutral-700 font-semibold text-[11px]">
+                  Power Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={libraryForm.name}
+                  onChange={e => setLibraryForm({ ...libraryForm, name: e.target.value })}
+                  placeholder="e.g. EMP Wave, Quantum Decoy"
+                  className="w-full border border-neutral-300 rounded-md px-2.5 py-1.5 text-xs outline-none focus:border-black font-medium"
+                />
+              </div>
+
+              {!editingLibraryPower && (
+                <div className="space-y-1">
+                  <label className="block text-neutral-700 font-semibold text-[11px]">
+                    Identifier Slug (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={libraryForm.id}
+                    onChange={e => setLibraryForm({ ...libraryForm, id: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
+                    placeholder="e.g. emp-wave (auto-generated if empty)"
+                    className="w-full border border-neutral-300 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-black"
+                  />
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="block text-neutral-700 font-semibold text-[11px]">
+                  Description & Mechanics *
+                </label>
+                <textarea
+                  required
+                  rows={2}
+                  value={libraryForm.description}
+                  onChange={e => setLibraryForm({ ...libraryForm, description: e.target.value })}
+                  placeholder="Describe in-game effect and duration rules..."
+                  className="w-full border border-neutral-300 rounded-md px-2.5 py-1.5 text-xs outline-none focus:border-black resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="block text-neutral-700 font-semibold text-[11px]">
+                    Cooldown (Seconds) *
+                  </label>
+                  <input
+                    type="number"
+                    min={5}
+                    max={300}
+                    required
+                    value={libraryForm.cooldownSeconds}
+                    onChange={e => setLibraryForm({ ...libraryForm, cooldownSeconds: Math.max(5, parseInt(e.target.value) || 30) })}
+                    className="w-full border border-neutral-300 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-black"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-neutral-700 font-semibold text-[11px]">
+                    Duration (Seconds)
+                  </label>
+                  <input
+                    type="number"
+                    min={5}
+                    max={120}
+                    value={libraryForm.durationSeconds}
+                    onChange={e => setLibraryForm({ ...libraryForm, durationSeconds: Math.max(5, parseInt(e.target.value) || 20) })}
+                    className="w-full border border-neutral-300 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-black"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5 pt-1">
+                <label className="block text-neutral-700 font-semibold text-[11px]">
+                  Target Scope:
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className={`p-2 border rounded-md cursor-pointer flex items-center gap-2 transition ${
+                    libraryForm.targetRequired ? 'border-black bg-neutral-100 font-bold' : 'border-neutral-200'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="libTargetScope"
+                      checked={libraryForm.targetRequired}
+                      onChange={() => setLibraryForm({ ...libraryForm, targetRequired: true })}
+                      className="accent-black"
+                    />
+                    <span>Target Team</span>
+                  </label>
+
+                  <label className={`p-2 border rounded-md cursor-pointer flex items-center gap-2 transition ${
+                    !libraryForm.targetRequired ? 'border-black bg-neutral-100 font-bold' : 'border-neutral-200'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="libTargetScope"
+                      checked={!libraryForm.targetRequired}
+                      onChange={() => setLibraryForm({ ...libraryForm, targetRequired: false })}
+                      className="accent-black"
+                    />
+                    <span>Entire Room</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-neutral-200">
+                <button
+                  type="button"
+                  onClick={() => setLibraryModalOpen(false)}
+                  className="px-3 py-1.5 border border-neutral-300 hover:border-black rounded-md font-medium text-xs transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 bg-black text-white hover:bg-neutral-800 rounded-md font-medium text-xs transition shadow-sm"
+                >
+                  {editingLibraryPower ? 'Save Changes' : 'Create Power'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* FULL ROOM SETTINGS & DETAILS INSPECTION POPUP MODAL */}
+      {/* ========================================================= */}
+      {selectedDetailRoom && (() => {
+        const room = selectedDetailRoom;
+        const roomTeams = teams.filter(t => t.assignedRoomId === room.id);
+        const totalPlayersInRoom = roomTeams.reduce(
+          (acc, t) => acc + (t.memberDetails?.length || t.members?.length || 0),
+          0
+        );
+        const currentImpostorInRoom = roomTeams.find(t => t.isImpostor);
+        const roomCapacity = room.capacity || 20;
+        const occupancyPercent = Math.min(100, Math.round((totalPlayersInRoom / roomCapacity) * 100));
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white border border-black rounded-lg max-w-3xl w-full p-6 space-y-5 shadow-2xl my-8 max-h-[90vh] overflow-y-auto">
+              {/* Modal Header */}
+              <div className="flex items-start justify-between border-b border-neutral-200 pb-3">
+                <div>
+                  <div className="flex items-center gap-2.5">
+                    <h2 className="text-xl font-bold tracking-tight">{room.name}</h2>
+                    <span className="px-2 py-0.5 border border-neutral-300 rounded text-xs font-mono font-semibold bg-neutral-100">
+                      {room.zone}
+                    </span>
+                  </div>
+                  <span className="text-xs text-neutral-500 font-mono mt-0.5 block">
+                    Room ID: {room.id}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedDetailRoom(null)}
+                  className="p-1.5 hover:bg-neutral-100 rounded text-neutral-500 hover:text-black transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Occupancy and POC Information Bar */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="p-3.5 border border-neutral-200 rounded-lg bg-neutral-50 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-neutral-700">Room Occupancy:</span>
+                    <span className="font-mono font-bold text-black">
+                      {totalPlayersInRoom} / {roomCapacity} Players ({occupancyPercent}%)
+                    </span>
+                  </div>
+                  {/* Progress Bar */}
+                  <div className="w-full bg-neutral-200 h-2 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all ${
+                        occupancyPercent >= 100 ? 'bg-black' : 'bg-neutral-800'
+                      }`}
+                      style={{ width: `${occupancyPercent}%` }}
+                    />
+                  </div>
+                  <div className="text-[11px] text-neutral-500">
+                    {roomTeams.length} active teams deployed in this sector.
+                  </div>
+                </div>
+
+                <div className="p-3.5 border border-neutral-200 rounded-lg bg-neutral-50 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-neutral-700">Point of Contact (POC):</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedDetailRoom(null);
+                        openEditRoom(room);
+                      }}
+                      className="text-[11px] font-medium text-black hover:underline flex items-center gap-1"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                      <span>Edit POC</span>
+                    </button>
+                  </div>
+                  <div className="text-sm font-bold text-black">{room.pocName || 'No Coordinator Assigned'}</div>
+                  {room.pocContact && (
+                    <div className="text-[11px] text-neutral-600 font-mono">
+                      Phone: {room.pocContact}
+                    </div>
+                  )}
+                  {room.pocEmail && (
+                    <div className="text-[11px] text-neutral-600">
+                      Email: {room.pocEmail}
+                    </div>
+                  )}
+                  {room.notes && (
+                    <div className="text-[11px] text-neutral-500 italic mt-1">
+                      Note: {room.notes}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Impostor Status & 3-Port Powers Console for this Room */}
+              <div className="p-4 border border-neutral-300 rounded-lg bg-neutral-100/70 space-y-3 text-xs">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-neutral-200 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <Skull className="w-4 h-4 text-black" />
+                    <span className="font-bold text-xs uppercase tracking-wide">Sector Impostor Squad:</span>
+                    {currentImpostorInRoom ? (
+                      <span className="px-2 py-0.5 bg-black text-white rounded text-[11px] font-mono font-bold">
+                        {currentImpostorInRoom.name} ({currentImpostorInRoom.teamCode || currentImpostorInRoom.id})
+                      </span>
+                    ) : (
+                      <span className="text-neutral-500 italic">None Set</span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleRollRandomImpostor(room.id, room.name)}
+                      disabled={roomTeams.length === 0}
+                      className="px-2.5 py-1 bg-black text-white hover:bg-neutral-800 disabled:opacity-40 rounded text-xs font-medium transition flex items-center gap-1"
+                    >
+                      <Dices className="w-3.5 h-3.5" />
+                      <span>Random Roll</span>
+                    </button>
+
+                    <select
+                      value={currentImpostorInRoom?.id || ''}
+                      onChange={e => handleSetRoomImpostor(room.id, e.target.value || null)}
+                      disabled={roomTeams.length === 0}
+                      className="border border-neutral-300 rounded px-2 py-1 text-xs outline-none bg-white font-medium"
+                    >
+                      <option value="">Clean (All Crewmates)</option>
+                      {roomTeams.map(t => (
+                        <option key={t.id} value={t.id}>
+                          {t.name} ({t.teamCode || t.id})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Impostor 3-Port Power Controls in Modal */}
+                {currentImpostorInRoom ? (
+                  <div className="space-y-2 pt-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-neutral-700 text-[11px] uppercase tracking-wider flex items-center gap-1">
+                        <Zap className="w-3 h-3 text-black" />
+                        <span>Equipped 3 Power Ports ({currentImpostorInRoom.name})</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleResetCooldowns(currentImpostorInRoom.id)}
+                        className="text-[10px] text-neutral-600 hover:text-black font-mono underline"
+                      >
+                        Reset All Cooldowns
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {[1, 2, 3].map(portNum => {
+                        const portIdx = portNum as 1 | 2 | 3;
+                        const ports = currentImpostorInRoom.powerPorts || AllocationDatabase.getTeamPowerPorts(currentImpostorInRoom.id);
+                        const port = ports.find(p => p.port === portIdx);
+                        const isPaused = port?.status === 'paused';
+                        const isEmpty = !port || port.status === 'disabled';
+
+                        return (
+                          <div
+                            key={portNum}
+                            className={`p-2.5 border rounded-md text-xs space-y-1.5 transition ${
+                              isPaused
+                                ? 'border-dashed border-neutral-400 bg-neutral-200/50'
+                                : isEmpty
+                                ? 'border-dashed border-neutral-300 bg-neutral-50'
+                                : 'border-neutral-300 bg-white'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-mono text-[10px] text-neutral-500 font-bold">PORT {portNum}</span>
+                              <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono uppercase font-bold ${
+                                isPaused ? 'bg-neutral-300 text-neutral-800' : isEmpty ? 'bg-neutral-200 text-neutral-600' : 'bg-black text-white'
+                              }`}>
+                                {isPaused ? 'Paused' : isEmpty ? 'Empty' : 'Active'}
+                              </span>
+                            </div>
+
+                            <div>
+                              <span className="font-bold block truncate text-[11px]">
+                                {isEmpty ? 'No Power Set' : port.name}
+                              </span>
+                              <span className="text-[10px] text-neutral-500 block">
+                                {isEmpty ? 'Slot empty' : `${port.cooldownSeconds}s CD • ${port.targetRequired ? 'Targeted' : 'Room-wide'}`}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-1 pt-1 border-t border-neutral-100">
+                              {!isEmpty && (
+                                <button
+                                  type="button"
+                                  onClick={() => handlePausePowerPort(currentImpostorInRoom.id, portIdx, port.status)}
+                                  className="flex-1 py-0.5 border border-neutral-300 hover:border-black rounded text-[10px] font-medium"
+                                >
+                                  {isPaused ? 'Resume' : 'Pause'}
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleOpenPowerModal(currentImpostorInRoom, portIdx)}
+                                className="flex-1 py-0.5 border border-neutral-300 hover:border-black rounded text-[10px] font-medium"
+                              >
+                                {isEmpty ? 'Set Power' : 'Swap'}
+                              </button>
+                              {!isEmpty && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeletePowerPort(currentImpostorInRoom.id, portIdx)}
+                                  className="p-1 hover:text-black text-neutral-400"
+                                  title="Clear Port"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-2 text-neutral-500 text-xs italic">
+                    Pick or roll an Impostor team above to configure their 3 Power Ports.
+                  </div>
+                )}
+              </div>
+
+              {/* Assigned Squads & Player Roster */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-neutral-200 pb-1.5">
+                  <span className="font-bold text-xs uppercase tracking-wider">
+                    Deployed Squads in this Room ({roomTeams.length}):
+                  </span>
+                  <span className="text-[11px] text-neutral-500">
+                    {totalPlayersInRoom} individual players
+                  </span>
+                </div>
+
+                {roomTeams.length === 0 ? (
+                  <div className="p-6 border border-dashed border-neutral-300 rounded-lg text-center text-neutral-500 text-xs">
+                    No squads currently allocated to this sector room.
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {roomTeams.map(team => {
+                      const members = team.memberDetails || [];
+                      return (
+                        <div
+                          key={team.id}
+                          className={`p-3.5 border rounded-lg bg-white space-y-2 text-xs transition ${
+                            team.isImpostor ? 'border-black shadow-sm' : 'border-neutral-200'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-sm">{team.name}</span>
+                                <span className="px-2 py-0.5 bg-black text-white rounded text-[10px] font-mono font-bold">
+                                  {team.teamCode || team.id}
+                                </span>
+                                {team.isImpostor ? (
+                                  <span className="px-2 py-0.5 bg-black text-white rounded text-[10px] font-bold flex items-center gap-1">
+                                    <Skull className="w-3 h-3" />
+                                    <span>IMPOSTOR</span>
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 border border-neutral-200 rounded text-[10px] text-neutral-600 font-medium">
+                                    Crewmate
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[11px] text-neutral-500 mt-0.5">
+                                Leader: <strong className="text-black">{team.leaderName || 'None'}</strong> {team.phone && `• ${team.phone}`}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleTeamImpostor(team.id, team.isImpostor)}
+                                className="px-2 py-1 border border-neutral-300 hover:border-black rounded text-[10px] font-medium transition"
+                              >
+                                {team.isImpostor ? 'Make Crew' : 'Make Impostor'}
+                              </button>
+                              <select
+                                value={team.assignedRoomId || ''}
+                                onChange={e => handleAssignTeamToRoom(team.id, e.target.value)}
+                                className="border border-neutral-300 rounded px-2 py-1 text-[11px] outline-none bg-white font-medium"
+                              >
+                                <option value="unassigned">Unassign</option>
+                                {rooms.map(r => (
+                                  <option key={r.id} value={r.id}>
+                                    Move to {r.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+
+                          {/* Player Members Roster */}
+                          <div className="pt-2 border-t border-neutral-100">
+                            <span className="text-[10px] uppercase font-bold text-neutral-400 block mb-1">
+                              Squad Members ({members.length}):
+                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {members.map((m, idx) => (
+                                <span
+                                  key={m.id || idx}
+                                  className="px-2 py-0.5 bg-neutral-100 border border-neutral-200 rounded text-[11px] text-neutral-800 font-medium"
+                                >
+                                  {m.name} {m.phone && <span className="text-neutral-500 font-mono text-[10px]">({m.phone})</span>}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer Quick Actions */}
+              <div className="flex items-center justify-between pt-4 border-t border-neutral-200 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedDetailRoom(null);
+                    openEditRoom(room);
+                  }}
+                  className="px-3 py-1.5 border border-neutral-300 hover:border-black rounded font-medium text-xs transition"
+                >
+                  Edit Room Settings
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedDetailRoom(null)}
+                  className="px-4 py-1.5 bg-black text-white hover:bg-neutral-800 rounded font-medium text-xs transition shadow-sm"
+                >
+                  Done / Close
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

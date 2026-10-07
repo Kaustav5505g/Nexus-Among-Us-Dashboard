@@ -149,20 +149,23 @@ npm run install:all
 ```
 
 ### 3. Configure Environment Variables
-Copy the sample environment files:
+Create a repository-root `.env` from `.env.example` and set your Supabase project URL and anon key. The same root file is read by the backend and Vite:
 ```bash
-# Backend configuration
-cp backend/.env.example backend/.env
-
-# Frontend configuration
-cp frontend/.env.example frontend/.env
+cp .env.example .env
 ```
+Set `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `VITE_SUPABASE_URL`, and
+`VITE_SUPABASE_ANON_KEY`. The root `.env` is gitignored; never commit a
+service-role key or expose it through a `VITE_` variable.
 
 ### 4. Run Development Servers Concurrently
 Start both the Express backend (`http://localhost:5000`) and Vite frontend (`http://localhost:5173`) together:
 ```bash
 npm run dev
 ```
+
+Open the player sign-in at `http://localhost:5173/login.html`, the admin
+console at `http://localhost:5173/admin.html`, and the player terminal at
+`http://localhost:5173/player.html`.
 
 Alternatively, you can run services individually:
 ```bash
@@ -181,7 +184,7 @@ npm run dev:frontend
 1. Create a project at [supabase.com](https://supabase.com).
 2. In the **SQL Editor**, run [`supabase/schema.sql`](./supabase/schema.sql) to create tables, RLS policies, and realtime publication.
 3. Run [`supabase/seed.sql`](./supabase/seed.sql) to populate initial station tasks and mystery dossiers.
-4. Copy `Project URL` and `anon key` to your `.env`.
+4. Copy `Project URL` and `anon key` to the root `.env` using the variable names above.
 > 📖 Detailed guide: [docs/SUPABASE_SETUP.md](./docs/SUPABASE_SETUP.md)
 
 ### 2. ▲ Vercel Hosting (One-Click)

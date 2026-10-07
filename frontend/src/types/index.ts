@@ -19,12 +19,37 @@ export type RoomType =
 export interface PlayerMember {
   id: string;
   name: string;
+  role?: string;
+  isLeader?: boolean;
   regNo?: string;
   phone?: string;
   email?: string;
   assignedRoomId?: string;
   assignedRoomName?: string;
   assignedZone?: string;
+}
+
+export interface ImpostorPowerPort {
+  port: 1 | 2 | 3;
+  id: string; // e.g. "sabotage-lights"
+  name: string; // e.g. "Sabotage Lights"
+  description: string;
+  cooldownSeconds: number;
+  durationSeconds?: number;
+  status: 'ready' | 'paused' | 'disabled';
+  lastUsedAt?: string | null;
+  targetRequired: boolean;
+}
+
+export interface TeamActiveEffect {
+  id: string;
+  powerName: string;
+  appliedByTeamId: string;
+  appliedByTeamName: string;
+  appliedAt: string;
+  durationSeconds: number;
+  expiresAt: number; // epoch ms
+  description?: string;
 }
 
 export interface Team {
@@ -49,6 +74,8 @@ export interface Team {
   assignedZone?: string;
   isImpostor?: boolean;
   impostorPlayerName?: string;
+  powerPorts?: ImpostorPowerPort[]; // 3 Ports of power for Impostor teams
+  activeEffects?: TeamActiveEffect[]; // Active effects targeting this crewmate team
   notes?: string;
   createdAt: string;
 }
@@ -149,9 +176,12 @@ export interface ActivityLogItem {
   message: string;
   teamName?: string;
   teamId?: string;
+  targetTeamId?: string;
+  targetTeamName?: string;
   roomId?: string;
   roomName?: string;
   powerName?: string;
+  portIndex?: 1 | 2 | 3;
   severity?: 'info' | 'warning' | 'danger' | 'success';
 }
 

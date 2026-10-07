@@ -30,12 +30,24 @@ CREATE TABLE IF NOT EXISTS public.teams (
     assigned_room TEXT DEFAULT 'Cafeteria',
     is_impostor BOOLEAN DEFAULT false,
     impostor_player_name TEXT,
+    team_code TEXT UNIQUE,
+    assigned_room_id TEXT,
+    assigned_room_name TEXT,
+    assigned_zone TEXT,
+    power_ports JSONB DEFAULT '[]'::jsonb,
+    active_effects JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Ensure all teams columns exist on pre-existing tables
-ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS assigned_room TEXT DEFAULT 'Cafeteria';
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS team_code TEXT;
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS assigned_room_id TEXT;
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS assigned_room_name TEXT;
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS assigned_zone TEXT;
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS power_ports JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS active_effects JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS assigned_room TEXT DEFAULT 'Room 1';
 ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS is_impostor BOOLEAN DEFAULT false;
 ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS impostor_player_name TEXT;
 ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS badge_code TEXT;
@@ -43,8 +55,44 @@ ALTER TABLE public.teams ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT
 
 CREATE INDEX IF NOT EXISTS idx_teams_score ON public.teams (score DESC);
 CREATE INDEX IF NOT EXISTS idx_teams_room ON public.teams (assigned_room);
+CREATE INDEX IF NOT EXISTS idx_teams_code ON public.teams (team_code);
 
--- 1.2 STATION TASKS & SECTOR PUZZLES TABLE
+-- 1.2 SECTOR ROOMS & ZONES TABLE (Dynamic Rooms, Capacities, & Assigned POCs)
+CREATE TABLE IF NOT EXISTS public.rooms (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    zone TEXT NOT NULL,
+    capacity INT DEFAULT 20,
+    poc_name TEXT,
+    poc_contact TEXT,
+    poc_email TEXT,
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.rooms ADD COLUMN IF NOT EXISTS poc_name TEXT;
+ALTER TABLE public.rooms ADD COLUMN IF NOT EXISTS poc_contact TEXT;
+ALTER TABLE public.rooms ADD COLUMN IF NOT EXISTS poc_email TEXT;
+ALTER TABLE public.rooms ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE public.rooms ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
+CREATE INDEX IF NOT EXISTS idx_rooms_zone ON public.rooms (zone);
+
+-- 1.3 STANDARD POWERS LIBRARY TABLE (3 Ports of Power, Cooldowns & Target Rules)
+CREATE TABLE IF NOT EXISTS public.powers_library (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL,
+    cooldown_seconds INT NOT NULL DEFAULT 30,
+    duration_seconds INT NOT NULL DEFAULT 20,
+    target_required BOOLEAN NOT NULL DEFAULT true,
+    status TEXT NOT NULL DEFAULT 'ready' CHECK (status IN ('ready', 'paused', 'disabled')),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 1.4 STATION TASKS & SECTOR PUZZLES TABLE
 CREATE TABLE IF NOT EXISTS public.station_tasks (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
@@ -118,12 +166,27 @@ CREATE TABLE IF NOT EXISTS public.emergency_meetings (
 -- 1.6 LIVE ACTIVITY AUDIT LOGS TABLE
 CREATE TABLE IF NOT EXISTS public.activity_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    type TEXT NOT NULL CHECK (type IN ('task', 'sabotage', 'emergency', 'clue', 'kill', 'system', 'admin')),
+    type TEXT NOT NULL CHECK (type IN ('task', 'sabotage', 'emergency', 'clue', 'kill', 'system', 'admin', 'power', 'impostor_assign', 'login')),
     message TEXT NOT NULL,
     team_name TEXT,
+    team_id TEXT,
+    target_team_id TEXT,
+    target_team_name TEXT,
+    room_name TEXT,
+    power_name TEXT,
+    port_index INT,
     severity TEXT DEFAULT 'info' CHECK (severity IN ('info', 'warning', 'danger', 'success')),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE public.activity_logs ADD COLUMN IF NOT EXISTS team_id TEXT;
+ALTER TABLE public.activity_logs ADD COLUMN IF NOT EXISTS target_team_id TEXT;
+ALTER TABLE public.activity_logs ADD COLUMN IF NOT EXISTS target_team_name TEXT;
+ALTER TABLE public.activity_logs ADD COLUMN IF NOT EXISTS room_name TEXT;
+ALTER TABLE public.activity_logs ADD COLUMN IF NOT EXISTS power_name TEXT;
+ALTER TABLE public.activity_logs ADD COLUMN IF NOT EXISTS port_index INT;
+ALTER TABLE public.activity_logs DROP CONSTRAINT IF EXISTS activity_logs_type_check;
+ALTER TABLE public.activity_logs ADD CONSTRAINT activity_logs_type_check CHECK (type IN ('task', 'sabotage', 'emergency', 'clue', 'kill', 'system', 'admin', 'power', 'impostor_assign', 'login'));
 
 CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON public.activity_logs (created_at DESC);
 
@@ -198,6 +261,8 @@ ALTER TABLE public.event_controls ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPT
 -- ==============================================================================
 
 ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.rooms ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.powers_library ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.station_tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.mystery_clues ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sabotage_events ENABLE ROW LEVEL SECURITY;
@@ -208,6 +273,8 @@ ALTER TABLE public.event_controls ENABLE ROW LEVEL SECURITY;
 
 -- Reset prior policies to ensure clean state
 DROP POLICY IF EXISTS "Allow public all on teams" ON public.teams;
+DROP POLICY IF EXISTS "Allow public all on rooms" ON public.rooms;
+DROP POLICY IF EXISTS "Allow public all on powers_library" ON public.powers_library;
 DROP POLICY IF EXISTS "Allow public all on station_tasks" ON public.station_tasks;
 DROP POLICY IF EXISTS "Allow public all on mystery_clues" ON public.mystery_clues;
 DROP POLICY IF EXISTS "Allow public all on sabotage_events" ON public.sabotage_events;
@@ -217,6 +284,8 @@ DROP POLICY IF EXISTS "Allow public all on admin_users" ON public.admin_users;
 DROP POLICY IF EXISTS "Allow public all on event_controls" ON public.event_controls;
 
 DROP POLICY IF EXISTS "Allow public read on teams" ON public.teams;
+DROP POLICY IF EXISTS "Allow public read on rooms" ON public.rooms;
+DROP POLICY IF EXISTS "Allow public read on powers_library" ON public.powers_library;
 DROP POLICY IF EXISTS "Allow public read on station_tasks" ON public.station_tasks;
 DROP POLICY IF EXISTS "Allow public read on mystery_clues" ON public.mystery_clues;
 DROP POLICY IF EXISTS "Allow public read on sabotage_events" ON public.sabotage_events;
@@ -227,6 +296,8 @@ DROP POLICY IF EXISTS "Allow public read on event_controls" ON public.event_cont
 
 -- Full CRUD permissions for anon web apps and service role
 CREATE POLICY "Allow public all on teams" ON public.teams FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public all on rooms" ON public.rooms FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public all on powers_library" ON public.powers_library FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public all on station_tasks" ON public.station_tasks FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public all on mystery_clues" ON public.mystery_clues FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public all on sabotage_events" ON public.sabotage_events FOR ALL USING (true) WITH CHECK (true);
@@ -243,6 +314,16 @@ DO $$
 BEGIN
     BEGIN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.teams;
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+
+    BEGIN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.rooms;
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+
+    BEGIN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.powers_library;
     EXCEPTION WHEN duplicate_object THEN NULL;
     END;
 
@@ -702,6 +783,39 @@ ON CONFLICT (name) DO UPDATE SET
     is_impostor = EXCLUDED.is_impostor,
     impostor_player_name = EXCLUDED.impostor_player_name;
 
--- 4.6 System Initial Activity Log
+-- 4.6 Sector Rooms Initial Seed
+INSERT INTO public.rooms (id, name, zone, capacity, poc_name, poc_contact, poc_email, notes)
+VALUES
+    ('room-1', 'Room 1', 'Zone A', 20, 'Aarav Sharma', '+91 98111 22334', 'aarav@nexus.org', 'Main Hall'),
+    ('room-2', 'Room 2', 'Zone A', 20, 'Zoya Khan', '+91 98222 33445', 'zoya@nexus.org', 'Lobby Annex'),
+    ('room-3', 'Room 3', 'Zone B', 18, 'Devansh Joshi', '+91 98333 44556', 'devansh@nexus.org', 'Lab 102'),
+    ('room-4', 'Room 4', 'Zone B', 18, 'Priya Bhatia', '+91 98444 55667', 'priya@nexus.org', 'Room 104'),
+    ('room-5', 'Room 5', 'Zone C', 15, 'Kabir Verma', '+91 98555 66778', 'kabir@nexus.org', 'Lab 201'),
+    ('room-6', 'Room 6', 'Zone C', 15, 'Tanya Roy', '+91 98666 77889', 'tanya@nexus.org', 'Workshop Area')
+ON CONFLICT (id) DO UPDATE SET
+    name = EXCLUDED.name,
+    zone = EXCLUDED.zone,
+    capacity = EXCLUDED.capacity,
+    poc_name = EXCLUDED.poc_name,
+    poc_contact = EXCLUDED.poc_contact,
+    poc_email = EXCLUDED.poc_email;
+
+-- 4.7 Standard Powers Library Initial Seed
+INSERT INTO public.powers_library (id, name, description, cooldown_seconds, duration_seconds, target_required, status)
+VALUES
+    ('sabotage-lights', 'Sabotage Lights', 'Kill sector power, plunging the room into darkness.', 30, 20, false, 'ready'),
+    ('terminal-freeze', 'Terminal Freeze', 'Freeze target crewmate team terminal, disabling all actions for 30s.', 45, 30, true, 'ready'),
+    ('comms-blackout', 'Comms Blackout', 'Disrupt radio signals and clue deciphering for target crewmate team.', 40, 25, true, 'ready'),
+    ('door-lockdown', 'Door Lockdown', 'Seal sector doors and freeze room movement for target crewmates.', 60, 35, true, 'ready'),
+    ('fake-clue-inject', 'Fake Clue Inject', 'Transmit corrupted forensic clue decipher to confuse target crewmates.', 35, 20, true, 'ready'),
+    ('radio-jammer', 'Radio Jammer', 'Jam coordinator hotline and emergency signals for target crewmate team.', 50, 30, true, 'ready')
+ON CONFLICT (id) DO UPDATE SET
+    name = EXCLUDED.name,
+    description = EXCLUDED.description,
+    cooldown_seconds = EXCLUDED.cooldown_seconds,
+    duration_seconds = EXCLUDED.duration_seconds,
+    target_required = EXCLUDED.target_required;
+
+-- 4.8 System Initial Activity Log
 INSERT INTO public.activity_logs (type, message, severity)
-VALUES ('system', 'NEXUS Skeld Station Database online. Master schemas and realtime replication ready.', 'info');
+VALUES ('system', 'NEXUS Skeld Station Database online. Rooms, Powers Library, Master schemas and realtime replication ready.', 'info');

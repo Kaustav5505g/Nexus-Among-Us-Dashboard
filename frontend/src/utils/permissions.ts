@@ -54,3 +54,35 @@ export const ROLE_PERMISSIONS: Record<AdminRole, RolePermissions> = {
 export const getRolePermissions = (role: AdminRole): RolePermissions => {
   return ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.moderator;
 };
+
+/**
+ * Root Master Account Guardian:
+ * Aditya Goyal (nx-masteradmin) is the ultimate root master administrator.
+ * This account is completely hidden from other admins/moderators on the website,
+ * and cannot be edited, modified, demoted, or deleted by anyone except Aditya himself.
+ */
+export const isRootMasterAccount = (
+  target: { id?: string; username?: string; name?: string; email?: string; facilitatorId?: string } | null | undefined
+): boolean => {
+  if (!target) return false;
+  const u = (target.username || '').toLowerCase().trim();
+  const fid = (target.facilitatorId || '').toLowerCase().trim();
+  const id = (target.id || '').toLowerCase().trim();
+  const name = (target.name || '').toLowerCase().trim();
+  const email = (target.email || '').toLowerCase().trim();
+
+  return (
+    u === 'nx-masteradmin' ||
+    fid === 'nx-masteradmin' ||
+    fid === 'nx-super-00' ||
+    id === 'a0000000-0000-0000-0000-000000000000' ||
+    name === 'aditya goyal' ||
+    email === 'nexus@nexus.org'
+  );
+};
+
+export const isCurrentAdityaUser = (
+  currentUser: { id?: string; username?: string; name?: string; email?: string; facilitatorId?: string } | null | undefined
+): boolean => {
+  return isRootMasterAccount(currentUser);
+};

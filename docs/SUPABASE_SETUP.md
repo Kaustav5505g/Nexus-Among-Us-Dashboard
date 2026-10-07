@@ -14,19 +14,20 @@ Follow this guide to initialize the PostgreSQL database and real-time streaming 
 
 ---
 
-## 2. Execute Single Unified Database Script
+## 2. Execute the Database Schema and Feature Migration
 
-We have consolidated the entire database schema, security policies, real-time publication, and initial seeds into a **single canonical file**:
+For a new Supabase project, run the complete schema. If you already have a project, run the rooms and powers migration after the base schema to add the newer admin allocation and power features.
 
 1. In your Supabase Project Dashboard, click on the **SQL Editor** icon in the left navigation sidebar.
 2. Click **New query**.
 3. Open [`supabase/schema.sql`](../supabase/schema.sql) from this repository, copy its entire contents, and paste it into the SQL Editor.
 4. Click **Run** (or press `Ctrl+Enter` / `Cmd+Enter`).
-   - Automatically provisions all tables: `teams`, `station_tasks`, `mystery_clues`, `sabotage_events`, `meeting_sessions`, `admin_users`, `audit_logs`, `player_progress`, and `activity_logs`.
+   - Provisions the teams, rooms, powers library, event controls, task, clue, sabotage, emergency, admin, and activity log tables used by the application.
    - Automatically enables UUID extension and performance indexes.
    - Automatically sets up Row Level Security (RLS) policies.
    - Automatically attaches tables to `supabase_realtime` publication.
-   - Automatically seeds all station tasks, room definitions, and facilitator profiles.
+   - Seeds station tasks, room definitions, powers, and facilitator profiles.
+5. For an existing database, also run [`supabase/migrations/20261007000000_add_rooms_and_powers.sql`](../supabase/migrations/20261007000000_add_rooms_and_powers.sql).
 
 ---
 
@@ -42,13 +43,13 @@ We have consolidated the entire database schema, security policies, real-time pu
 
 ## 4. Configure Local & Production Environment
 
-Add these credentials to your environment files:
+Create the repository-root `.env` from `.env.example`. The backend reads `SUPABASE_URL` and `SUPABASE_ANON_KEY` (or a server-only `SUPABASE_SERVICE_ROLE_KEY`). Vite reads the `VITE_`-prefixed values from the same root file:
 
-### Local Development (`.env`):
 ```env
+SUPABASE_URL=https://your-ref.supabase.co
+SUPABASE_ANON_KEY=your-supabase-anon-key
 VITE_SUPABASE_URL=https://your-ref.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJh...
+VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
 
-### Vercel Deployment:
-Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` under **Project Settings -> Environment Variables** in the Vercel dashboard.
+The root `.env` is gitignored. Never expose a service-role key in frontend variables or commit credentials. For production, set the backend and frontend variables in your hosting provider's environment settings.
