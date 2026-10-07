@@ -5,6 +5,11 @@ import { AdminAuthProvider } from './context/AdminAuthContext';
 const AmongUsAdmin = lazy(() => import('./pages/AmongUsAdmin'));
 const Login = lazy(() => import('./pages/Login'));
 const Player = lazy(() => import('./pages/Player'));
+const Wordle = lazy(() => import('./games/Wordle'));
+const Emoji = lazy(() => import('./games/Emoji/Emoji'));
+const MemeDecoder = lazy(() => import('./games/MemeDecoder/App'));
+const MonkeyType = lazy(() => import('./games/MonkeyType/App'));
+const Pacman = lazy(() => import('./games/Pacman/App'));
 
 export default function App() {
   return (
@@ -25,6 +30,11 @@ export default function App() {
             <Route path="/player" element={<Player />} />
             <Route path="/admin" element={<AmongUsAdmin />} />
             <Route path="/dashboard" element={<AmongUsAdmin />} />
+            <Route path="/games/wordle" element={<Wordle />} />
+            <Route path="/games/emoji" element={<Emoji />} />
+            <Route path="/games/memedecoder" element={<MemeDecoder />} />
+            <Route path="/games/monkeytype" element={<MonkeyType />} />
+            <Route path="/games/pacman" element={<Pacman />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>

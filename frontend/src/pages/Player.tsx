@@ -177,13 +177,25 @@ export default function Player() {
                 powersHeaderTitle.textContent = 'Crewmate Operations';
       
                 powersGrid.innerHTML = `
-                  <button class="power-btn" data-power="Report Suspicion">
-                    <span class="power-btn-title">🚨 Report Suspicion</span>
-                    <span class="power-btn-desc">Signal coordinator for emergency sector discussion</span>
+                  <button class="power-btn" data-game-url="games/wordle">
+                    <span class="power-btn-title">🎮 Play Wordle</span>
+                    <span class="power-btn-desc">Decipher the secret word</span>
                   </button>
-                  <button class="power-btn" data-power="Submit Clue Progress">
-                    <span class="power-btn-title">🔍 Submit Clue Decipher</span>
-                    <span class="power-btn-desc">Transmit solved forensic clue to room facilitator</span>
+                  <button class="power-btn" data-game-url="games/emoji">
+                    <span class="power-btn-title">🎭 Emoji Decoder</span>
+                    <span class="power-btn-desc">Guess the phrase from emojis</span>
+                  </button>
+                  <button class="power-btn" data-game-url="games/memedecoder">
+                    <span class="power-btn-title">🖼️ Meme Decoder</span>
+                    <span class="power-btn-desc">Decode the popular memes</span>
+                  </button>
+                  <button class="power-btn" data-game-url="games/monkeytype">
+                    <span class="power-btn-title">⌨️ Code Typer</span>
+                    <span class="power-btn-desc">Test your typing speed</span>
+                  </button>
+                  <button class="power-btn" data-game-url="games/pacman">
+                    <span class="power-btn-title">👻 Pacman</span>
+                    <span class="power-btn-desc">Classic arcade survival</span>
                   </button>
                 `;
               }
@@ -191,6 +203,12 @@ export default function Player() {
               // Attach power button click events
               powersGrid.querySelectorAll('.power-btn').forEach(btn => {
                 btn.onclick = function() {
+                  const gameUrl = btn.dataset.gameUrl;
+                  if (gameUrl) {
+                    window.location.assign(gameUrl);
+                    return;
+                  }
+
                   const powerName = btn.dataset.power;
                   const actionMsg = isImpostor
                     ? `⚡ IMPOSTOR POWER: ${team.name} (${team.teamCode || team.id}) activated ${powerName} in ${room.name || 'Sector'}!`
