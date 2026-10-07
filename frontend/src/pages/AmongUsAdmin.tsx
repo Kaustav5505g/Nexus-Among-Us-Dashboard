@@ -37,6 +37,9 @@ import {
   Trophy,
   Award,
   TrendingUp,
+  ChevronDown,
+  ChevronUp,
+  Filter,
 } from 'lucide-react';
 import { useAdminAuth } from '../context/AdminAuthContext';
 import { Team, RoomRecord, PlayerMember, AdminUser, AdminRole, ActivityLogItem, ImpostorPowerPort, GamePointsConfig, GamePlayedRecord } from '../types';
@@ -69,6 +72,9 @@ export default function AmongUsAdmin() {
   const [logSearchQuery, setLogSearchQuery] = useState('');
   const [logFilter, setLogFilter] = useState<'all' | 'power' | 'impostor_assign' | 'sabotage' | 'login' | 'system'>('all');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [allocationSearchQuery, setAllocationSearchQuery] = useState('');
+  const [allocationFilter, setAllocationFilter] = useState<'all' | 'infiltrated' | 'vacant' | 'empty'>('all');
+  const [isStagingOpen, setIsStagingOpen] = useState(true);
 
   // -------------------------------------------------------------
   // GAME POINTS & LEADERBOARD STATE
@@ -227,6 +233,24 @@ export default function AmongUsAdmin() {
     setTeams(res.updatedTeams);
     setActivityLogs(AllocationDatabase.getLogs());
     notify(`🎲 Rolled Impostor in ${roomName}: ${res.selectedTeam.name} (${res.selectedTeam.teamCode || res.selectedTeam.id})`);
+  };
+
+  const handleRollAllRoomImpostors = () => {
+    let rolled = 0;
+    rooms.forEach(r => {
+      const roomTeams = teams.filter(t => t.assignedRoomId === r.id || t.assignedRoom === r.id || t.assignedRoomName === r.name);
+      if (roomTeams.length > 0 && !roomTeams.some(t => t.isImpostor)) {
+        AllocationDatabase.rollRandomImpostorInRoom(r.id);
+        rolled++;
+      }
+    });
+    setTeams(AllocationDatabase.getTeams());
+    setActivityLogs(AllocationDatabase.getLogs());
+    if (rolled > 0) {
+      notify(`🎲 Rolled random Impostors for ${rolled} pending rooms!`);
+    } else {
+      notify('All rooms with teams already have an Impostor, or have no teams assigned.');
+    }
   };
 
   const handleSetRoomImpostor = (roomId: string, targetTeamId: string | null) => {
@@ -1027,6 +1051,23 @@ export default function AmongUsAdmin() {
     return map;
   }, [rooms, teams]);
 
+  const filteredRoomsForAllocation = useMemo(() => {
+    return rooms.filter(room => {
+      const roomTeams = teamsByRoom[room.id] || [];
+      const hasImpostor = roomTeams.some(t => t.isImpostor);
+
+      if (allocationFilter === 'infiltrated' && !hasImpostor) return false;
+      if (allocationFilter === 'vacant' && (hasImpostor || roomTeams.length === 0)) return false;
+      if (allocationFilter === 'empty' && roomTeams.length > 0) return false;
+
+      if (!allocationSearchQuery.trim()) return true;
+      const q = allocationSearchQuery.toLowerCase();
+      const matchRoom = room.name.toLowerCase().includes(q) || (room.zone && room.zone.toLowerCase().includes(q)) || (room.pocName && room.pocName.toLowerCase().includes(q));
+      const matchTeam = roomTeams.some(t => t.name.toLowerCase().includes(q) || (t.teamCode && t.teamCode.toLowerCase().includes(q)));
+      return matchRoom || matchTeam;
+    });
+  }, [rooms, teamsByRoom, allocationFilter, allocationSearchQuery]);
+
   // =============================================================
   // 1. LOGIN SCREEN (CLEAN, MODERN BLACK & WHITE, NO DEMO LOGINS)
   // =============================================================
@@ -1389,406 +1430,664 @@ export default function AmongUsAdmin() {
             </div>
 
         {/* ========================================================= */}
-        {/* TAB 1: ROOM ALLOCATION */}
+        {/* TAB 1: ROOM ALLOCATION MATRIX (UPGRADED TACTICAL DESIGN)  */}
         {/* ========================================================= */}
-        {activeTab === 'allocation' && (
-          <div className="space-y-5">
-            {/* Action Bar */}
-            <div className="p-4 border border-neutral-200 rounded-lg bg-neutral-50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
-              <div>
-                <span className="font-bold text-sm block">Allocation Matrix</span>
-                <span className="text-neutral-500">
-                  {assignedTeams.length} of {teams.length} teams assigned to rooms
-                </span>
-              </div>
+        {activeTab === 'allocation' && (() => {
+          const allocationPct = teams.length > 0 ? Math.round((assignedTeams.length / teams.length) * 100) : 0;
+          const infiltratedCount = rooms.filter(r => (teamsByRoom[r.id] || []).some(t => t.isImpostor)).length;
+          const needsImpostorCount = rooms.filter(r => {
+            const rTeams = teamsByRoom[r.id] || [];
+            return rTeams.length > 0 && !rTeams.some(t => t.isImpostor);
+          }).length;
+          const emptyCount = rooms.filter(r => (teamsByRoom[r.id] || []).length === 0).length;
+          const totalPlayersInField = assignedTeams.reduce(
+            (acc, t) => acc + (t.memberDetails?.length || t.members?.length || 0),
+            0
+          );
 
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  onClick={handleAutoAllot}
-                  className="px-3 py-1.5 bg-black text-white hover:bg-neutral-800 rounded-md font-medium text-xs transition"
-                >
-                  ⚡ Auto-Assign All Teams
-                </button>
-
-                <button
-                  onClick={handleResetAll}
-                  className="px-3 py-1.5 border border-neutral-300 hover:border-black rounded-md font-medium text-xs transition"
-                >
-                  Clear All
-                </button>
-              </div>
-            </div>
-
-            {/* Unassigned Teams Section */}
-            {unassignedTeams.length > 0 && (
-              <div className="p-4 border border-neutral-300 rounded-lg bg-white space-y-3">
-                <span className="font-semibold text-xs text-neutral-800 block">
-                  Unassigned Teams ({unassignedTeams.length}):
-                </span>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-xs">
-                  {unassignedTeams.map(t => (
-                    <div
-                      key={t.id}
-                      className="p-2.5 border border-neutral-200 rounded-md bg-neutral-50 flex items-center justify-between gap-2"
-                    >
-                      <div>
-                        <span className="font-bold block">{t.name}</span>
-                        <span className="text-neutral-500 text-[11px]">
-                          {t.memberDetails?.length || t.members?.length || 0} players
-                        </span>
-                      </div>
-
-                      <select
-                        onChange={e => {
-                          if (e.target.value) {
-                            handleAssignTeamToRoom(t.id, e.target.value);
-                            e.target.value = '';
-                          }
-                        }}
-                        defaultValue=""
-                        className="border border-neutral-300 rounded px-2 py-1 text-xs outline-none bg-white"
-                      >
-                        <option value="" disabled>Put in...</option>
-                        {rooms.map(r => (
-                          <option key={r.id} value={r.id}>
-                            {r.name}
-                          </option>
-                        ))}
-                      </select>
+          return (
+            <div className="space-y-6">
+              {/* Top Tactical Telemetry & Command Strip */}
+              <div className="p-4 sm:p-5 border border-neutral-300 rounded-xl bg-white shadow-xs space-y-4">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-neutral-200">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <h2 className="text-base sm:text-lg font-bold tracking-tight uppercase">
+                        Sector Allocation Matrix
+                      </h2>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-neutral-900 text-white tracking-widest uppercase">
+                        TACTICAL ENGINE
+                      </span>
                     </div>
-                  ))}
+                    <p className="text-xs text-neutral-500 mt-1">
+                      Live station balancing, operative deployment, and covert infiltration supervision.
+                    </p>
+                  </div>
+
+                  {/* Matrix Quick Actions */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      onClick={handleAutoAllot}
+                      className="px-3.5 py-2 bg-black text-white hover:bg-neutral-800 rounded-lg font-semibold text-xs transition flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+                    >
+                      <Zap className="w-3.5 h-3.5 text-yellow-400" />
+                      <span>Auto-Assign All Teams</span>
+                    </button>
+
+                    <button
+                      onClick={handleRollAllRoomImpostors}
+                      className="px-3.5 py-2 bg-neutral-900 text-white hover:bg-black rounded-lg font-semibold text-xs transition flex items-center gap-1.5 shadow-sm active:scale-95 border border-neutral-700 cursor-pointer"
+                      title="Automatically roll 1 random Impostor for each room that lacks one"
+                    >
+                      <Dices className="w-3.5 h-3.5 text-red-400" />
+                      <span>Roll All Impostors</span>
+                    </button>
+
+                    <button
+                      onClick={handleResetAll}
+                      className="px-3 py-2 border border-neutral-300 hover:border-black rounded-lg font-medium text-xs transition text-neutral-700 hover:text-black active:scale-95 cursor-pointer"
+                    >
+                      Clear Matrix
+                    </button>
+                  </div>
+                </div>
+
+                {/* Telemetry KPI Strip */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-lg">
+                    <span className="text-[10px] text-neutral-500 uppercase font-mono block">Station Sectors</span>
+                    <div className="text-xl font-bold mt-0.5 flex items-baseline gap-1.5">
+                      <span>{rooms.length}</span>
+                      <span className="text-[10px] font-normal text-neutral-400">active rooms</span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-neutral-500 uppercase font-mono block">Squads Allocated</span>
+                      <span className="text-[10px] font-mono font-bold text-neutral-700">{allocationPct}%</span>
+                    </div>
+                    <div className="text-xl font-bold mt-0.5">
+                      {assignedTeams.length} <span className="text-xs font-normal text-neutral-400">/ {teams.length}</span>
+                    </div>
+                    {/* Mini progress track */}
+                    <div className="w-full bg-neutral-200 rounded-full h-1 mt-1.5 overflow-hidden">
+                      <div className="bg-black h-1 rounded-full transition-all duration-500" style={{ width: `${allocationPct}%` }} />
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-lg">
+                    <span className="text-[10px] text-neutral-500 uppercase font-mono block">Infiltration Rate</span>
+                    <div className="text-xl font-bold mt-0.5 flex items-baseline gap-1.5">
+                      <span className={infiltratedCount > 0 ? "text-red-600" : "text-neutral-700"}>{infiltratedCount}</span>
+                      <span className="text-[10px] font-normal text-neutral-400">/ {rooms.length} rooms</span>
+                    </div>
+                    <div className="text-[10px] text-neutral-500 mt-1 font-mono">
+                      {needsImpostorCount > 0 ? `⚠️ ${needsImpostorCount} rooms need impostor` : '✅ Infiltration balanced'}
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-lg">
+                    <span className="text-[10px] text-neutral-500 uppercase font-mono block">Field Operatives</span>
+                    <div className="text-xl font-bold mt-0.5 flex items-baseline gap-1.5">
+                      <span>{totalPlayersInField}</span>
+                      <span className="text-[10px] font-normal text-neutral-400">players placed</span>
+                    </div>
+                    <div className="text-[10px] text-neutral-500 mt-1 font-mono">
+                      {unassignedTeams.length} squads unassigned
+                    </div>
+                  </div>
+                </div>
+
+                {/* Filter and Search Bar */}
+                <div className="pt-2 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 text-xs">
+                  {/* Search */}
+                  <div className="relative flex-1 max-w-md">
+                    <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={allocationSearchQuery}
+                      onChange={e => setAllocationSearchQuery(e.target.value)}
+                      placeholder="Search sector name, zone, POC, or team inside..."
+                      className="w-full pl-8 pr-3 py-1.5 border border-neutral-300 rounded-lg text-xs outline-none focus:border-black bg-white"
+                    />
+                    {allocationSearchQuery && (
+                      <button
+                        onClick={() => setAllocationSearchQuery('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-black cursor-pointer"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Filter Pills */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setAllocationFilter('all')}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition cursor-pointer ${
+                        allocationFilter === 'all'
+                          ? 'bg-black text-white'
+                          : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                      }`}
+                    >
+                      All ({rooms.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAllocationFilter('infiltrated')}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition cursor-pointer ${
+                        allocationFilter === 'infiltrated'
+                          ? 'bg-red-600 text-white'
+                          : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                      }`}
+                    >
+                      ⚡ Infiltrated ({infiltratedCount})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAllocationFilter('vacant')}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition cursor-pointer ${
+                        allocationFilter === 'vacant'
+                          ? 'bg-amber-600 text-white'
+                          : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                      }`}
+                    >
+                      ⚠️ Needs Impostor ({needsImpostorCount})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAllocationFilter('empty')}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition cursor-pointer ${
+                        allocationFilter === 'empty'
+                          ? 'bg-neutral-800 text-white'
+                          : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                      }`}
+                    >
+                      Empty ({emptyCount})
+                    </button>
+                  </div>
                 </div>
               </div>
-            )}
 
-            {/* Rooms Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {rooms.map(room => {
-                const roomTeams = teamsByRoom[room.id] || [];
-                const totalPlayersInRoom = roomTeams.reduce(
-                  (acc, t) => acc + (t.memberDetails?.length || t.members?.length || 0),
-                  0
-                );
+              {/* Unassigned Teams Staging Area (Collapsible) */}
+              <div className="border border-neutral-300 rounded-xl bg-white overflow-hidden shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => setIsStagingOpen(!isStagingOpen)}
+                  className="w-full px-4 py-3 bg-neutral-50 hover:bg-neutral-100 transition flex items-center justify-between text-left text-xs cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Building className="w-4 h-4 text-neutral-600" />
+                    <span className="font-bold uppercase tracking-wider text-[11px] text-neutral-800">
+                      Staging Hangar • Unassigned Squads
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-full font-mono text-[10px] font-bold ${
+                      unassignedTeams.length > 0 ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                    }`}>
+                      {unassignedTeams.length} {unassignedTeams.length === 1 ? 'Squad' : 'Squads'} Awaiting Staging
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-neutral-500 text-[11px]">
+                    <span>{isStagingOpen ? 'Collapse' : 'Expand'}</span>
+                    {isStagingOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  </div>
+                </button>
 
-                return (
-                  <div
-                    key={room.id}
-                    className="border border-neutral-200 rounded-lg bg-white p-4 space-y-3 flex flex-col justify-between shadow-sm"
-                  >
-                    {/* Room Header */}
-                    <div className="space-y-1.5 border-b border-neutral-100 pb-3">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-base">
-                          {room.name}
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          <span className="px-2 py-0.5 border border-neutral-200 rounded text-[11px] font-medium bg-neutral-50">
-                            {room.zone}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedDetailRoom(room)}
-                            title="Open Full Room Details & Settings"
-                            className="px-2 py-0.5 border border-neutral-300 hover:border-black rounded bg-white hover:bg-neutral-100 text-[11px] font-semibold transition flex items-center gap-1 shadow-sm"
-                          >
-                            <span>Inspect</span>
-                            <ArrowUpRight className="w-3.5 h-3.5" />
-                          </button>
+                {isStagingOpen && (
+                  <div className="p-4 border-t border-neutral-200">
+                    {unassignedTeams.length === 0 ? (
+                      <div className="p-4 bg-emerald-50/60 border border-emerald-200 rounded-lg text-emerald-800 text-xs flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <div>
+                          <strong>All Operative Squads Deployed!</strong> Every registered team is currently assigned to a station room.
                         </div>
                       </div>
-
-                      <div className="text-xs text-neutral-600">
-                        <span>POC: </span>
-                        <strong className="text-black">{room.pocName || 'None'}</strong>
-                        {room.pocContact && (
-                          <span className="block text-neutral-500 text-[11px]">
-                            {room.pocContact}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="text-[11px] text-neutral-500 font-medium pt-0.5">
-                        {roomTeams.length} teams ({totalPlayersInRoom} players)
-                      </div>
-                    </div>
-
-                    {/* Impostor Status & Selection Controls for Room */}
-                    {(() => {
-                      const currentImpostorInRoom = roomTeams.find(t => t.isImpostor);
-                      return (
-                        <div className="p-2.5 border border-neutral-300 rounded-md bg-neutral-100/80 space-y-2 text-xs">
-                          <div className="flex items-center justify-between gap-1">
-                            <div className="flex items-center gap-1.5 font-semibold text-[11px]">
-                              <Skull className="w-3.5 h-3.5 text-black" />
-                              <span>Room Impostor:</span>
-                            </div>
-                            {currentImpostorInRoom ? (
-                              <span className="px-2 py-0.5 bg-black text-white rounded text-[10px] font-mono font-bold flex items-center gap-1">
-                                <span>{currentImpostorInRoom.name}</span>
-                                <span className="text-neutral-400">({currentImpostorInRoom.teamCode || currentImpostorInRoom.id})</span>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 text-xs">
+                        {unassignedTeams.map(t => (
+                          <div
+                            key={t.id}
+                            className="p-3 border border-neutral-200 hover:border-neutral-400 rounded-lg bg-neutral-50/70 hover:bg-white transition flex flex-col justify-between gap-2.5 shadow-2xs"
+                          >
+                            <div>
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="font-bold truncate text-black" title={t.name}>{t.name}</span>
+                                <span className="font-mono text-[10px] px-1.5 py-0.5 bg-neutral-200 rounded font-semibold text-neutral-700 shrink-0">
+                                  {t.teamCode || t.id}
+                                </span>
+                              </div>
+                              <span className="text-[11px] text-neutral-500 block mt-1">
+                                👥 {t.memberDetails?.length || t.members?.length || 0} Operatives
+                                {t.leaderName && ` • Leader: ${t.leaderName}`}
                               </span>
-                            ) : (
-                              <span className="text-[11px] text-neutral-500 italic">None set</span>
-                            )}
-                          </div>
-
-                          {/* Controls: Random Impostor & Custom Override Dropdown */}
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleRollRandomImpostor(room.id, room.name)}
-                              disabled={roomTeams.length === 0}
-                              title="Randomly pick 1 team in this room as Impostor"
-                              className="px-2 py-1 bg-black text-white hover:bg-neutral-800 disabled:opacity-40 disabled:cursor-not-allowed rounded text-[11px] font-medium transition flex items-center gap-1 whitespace-nowrap"
-                            >
-                              <Dices className="w-3 h-3" />
-                              <span>Random Roll</span>
-                            </button>
+                            </div>
 
                             <select
-                              value={currentImpostorInRoom?.id || ''}
-                              onChange={e => handleSetRoomImpostor(room.id, e.target.value || null)}
-                              disabled={roomTeams.length === 0}
-                              className="flex-1 border border-neutral-300 rounded px-1.5 py-1 text-[11px] outline-none bg-white font-medium"
+                              onChange={e => {
+                                if (e.target.value) {
+                                  handleAssignTeamToRoom(t.id, e.target.value);
+                                  e.target.value = '';
+                                }
+                              }}
+                              defaultValue=""
+                              className="w-full border border-neutral-300 rounded-md px-2 py-1.5 text-[11px] outline-none bg-white font-medium hover:border-black cursor-pointer transition"
                             >
-                              <option value="">Custom Override (None / Reset)</option>
-                              {roomTeams.map(t => (
-                                <option key={t.id} value={t.id}>
-                                  Set: {t.name} ({t.teamCode || t.id})
+                              <option value="" disabled>Deploy to Sector →</option>
+                              {rooms.map(r => (
+                                <option key={r.id} value={r.id}>
+                                  {r.name} ({r.zone || 'Station'})
                                 </option>
                               ))}
                             </select>
                           </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
-                          {/* 3 Active Power Ports for the Impostor Team */}
-                          {currentImpostorInRoom && (() => {
-                            const ports = currentImpostorInRoom.powerPorts && currentImpostorInRoom.powerPorts.length === 3
-                              ? currentImpostorInRoom.powerPorts
-                              : AllocationDatabase.getTeamPowerPorts(currentImpostorInRoom.id);
+              {/* Station Sectors Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {filteredRoomsForAllocation.map(room => {
+                  const roomTeams = teamsByRoom[room.id] || [];
+                  const totalPlayersInRoom = roomTeams.reduce(
+                    (acc, t) => acc + (t.memberDetails?.length || t.members?.length || 0),
+                    0
+                  );
+                  const currentImpostorInRoom = roomTeams.find(t => t.isImpostor);
 
-                            return (
-                              <div className="pt-2 border-t border-neutral-300 space-y-1.5">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-neutral-800">
-                                    <Zap className="w-3 h-3 text-black" />
-                                    <span>3 Power Ports</span>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleResetCooldowns(currentImpostorInRoom.id)}
-                                    title="Reset cooldowns on all 3 ports"
-                                    className="text-[10px] text-neutral-600 hover:text-black flex items-center gap-1 font-medium underline underline-offset-2"
-                                  >
-                                    <RotateCcw className="w-2.5 h-2.5" />
-                                    <span>Reset CD</span>
-                                  </button>
+                  return (
+                    <div
+                      key={room.id}
+                      className={`border rounded-xl bg-white p-4 space-y-3.5 flex flex-col justify-between transition shadow-xs hover:shadow-md ${
+                        currentImpostorInRoom
+                          ? 'border-neutral-300 hover:border-black'
+                          : 'border-neutral-200 hover:border-neutral-400'
+                      }`}
+                    >
+                      {/* Top Accent Strip */}
+                      <div>
+                        {/* Sector Header */}
+                        <div className="space-y-2 border-b border-neutral-100 pb-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className={`w-2 h-2 rounded-full ${currentImpostorInRoom ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} />
+                                <span className="font-extrabold text-base tracking-tight text-black">
+                                  {room.name}
+                                </span>
+                              </div>
+                              <span className="inline-block mt-0.5 px-2 py-0.5 bg-neutral-100 border border-neutral-200 rounded text-[10px] font-mono font-medium text-neutral-600">
+                                {room.zone || 'Main Deck'}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                              <span className="px-2 py-1 rounded bg-neutral-100 text-[10px] font-mono font-bold text-neutral-700">
+                                {roomTeams.length} {roomTeams.length === 1 ? 'Squad' : 'Squads'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedDetailRoom(room)}
+                                title="Open Full Room Details & Settings"
+                                className="px-2 py-1 border border-neutral-300 hover:border-black rounded bg-white text-[11px] font-semibold transition flex items-center gap-1 shadow-2xs cursor-pointer"
+                              >
+                                <span>Inspect</span>
+                                <ArrowUpRight className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* POC Telemetry */}
+                          <div className="flex items-center justify-between text-xs text-neutral-600 pt-0.5">
+                            <div>
+                              <span className="text-neutral-400 text-[11px]">POC: </span>
+                              <strong className="text-black font-semibold">{room.pocName || 'Unassigned'}</strong>
+                            </div>
+                            {room.pocContact && (
+                              <span className="text-neutral-500 font-mono text-[10px]">
+                                {room.pocContact}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Impostor Threat Core */}
+                        <div className="mt-3">
+                          {currentImpostorInRoom ? (
+                            <div className="p-3 border border-neutral-800 rounded-lg bg-neutral-950 text-white space-y-2.5 text-xs shadow-inner">
+                              <div className="flex items-center justify-between gap-1">
+                                <div className="flex items-center gap-1.5 font-bold text-[11px] text-red-400">
+                                  <Skull className="w-3.5 h-3.5 text-red-500" />
+                                  <span className="tracking-wide uppercase">Covert Threat:</span>
                                 </div>
+                                <span className="px-2 py-0.5 bg-red-950 border border-red-700 text-red-200 rounded text-[10px] font-mono font-bold flex items-center gap-1 truncate max-w-[140px]">
+                                  <span>{currentImpostorInRoom.name}</span>
+                                </span>
+                              </div>
 
-                                <div className="space-y-1">
-                                  {ports.map(port => {
-                                    const isPaused = port.status === 'paused';
-                                    const isDisabled = port.status === 'disabled';
-                                    const now = Date.now();
-                                    const lastUsed = port.lastUsedAt ? new Date(port.lastUsedAt).getTime() : 0;
-                                    const elapsed = (now - lastUsed) / 1000;
-                                    const onCooldown = lastUsed > 0 && elapsed < port.cooldownSeconds;
-                                    const remainingCd = onCooldown ? Math.ceil(port.cooldownSeconds - elapsed) : 0;
+                              {/* Controls: Random Impostor & Custom Override Dropdown */}
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRollRandomImpostor(room.id, room.name)}
+                                  disabled={roomTeams.length === 0}
+                                  title="Randomly pick 1 team in this room as Impostor"
+                                  className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-neutral-200 disabled:opacity-40 rounded text-[11px] font-medium transition flex items-center gap-1 whitespace-nowrap cursor-pointer"
+                                >
+                                  <Dices className="w-3 h-3 text-red-400" />
+                                  <span>Re-Roll</span>
+                                </button>
 
-                                    return (
-                                      <div
-                                        key={port.port}
-                                        className={`p-1.5 border rounded text-[11px] transition flex flex-col gap-1 ${
-                                          isPaused
-                                            ? 'border-neutral-300 bg-neutral-200/80 text-neutral-700'
-                                            : isDisabled
-                                            ? 'border-neutral-200 bg-neutral-50 text-neutral-400'
-                                            : onCooldown
-                                            ? 'border-neutral-300 bg-neutral-100 text-neutral-800'
-                                            : 'border-neutral-300 bg-white text-black shadow-2xs'
-                                        }`}
-                                      >
-                                        <div className="flex items-center justify-between gap-1">
-                                          <div className="flex items-center gap-1 min-w-0">
-                                            <span className="font-mono font-bold text-[9px] px-1 bg-black text-white rounded">
-                                              P{port.port}
-                                            </span>
-                                            <span className="font-bold truncate text-[11px]" title={port.name}>
-                                              {port.name}
-                                            </span>
-                                          </div>
+                                <select
+                                  value={currentImpostorInRoom.id || ''}
+                                  onChange={e => handleSetRoomImpostor(room.id, e.target.value || null)}
+                                  className="flex-1 border border-neutral-800 rounded px-1.5 py-1 text-[11px] outline-none bg-neutral-900 text-white font-medium cursor-pointer"
+                                >
+                                  <option value="">Reset / Clear Impostor</option>
+                                  {roomTeams.map(t => (
+                                    <option key={t.id} value={t.id}>
+                                      Set: {t.name} ({t.teamCode || t.id})
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
 
-                                          <div className="flex items-center gap-1 shrink-0">
-                                            {isPaused ? (
-                                              <span className="px-1 py-0.2 bg-neutral-800 text-white font-mono text-[9px] rounded font-semibold uppercase">
-                                                PAUSED
-                                              </span>
-                                            ) : isDisabled ? (
-                                              <span className="px-1 py-0.2 bg-neutral-200 text-neutral-600 font-mono text-[9px] rounded font-semibold uppercase">
-                                                EMPTY
-                                              </span>
-                                            ) : onCooldown ? (
-                                              <span className="px-1 py-0.2 border border-black text-black font-mono text-[9px] rounded font-bold">
-                                                CD {remainingCd}s
-                                              </span>
-                                            ) : (
-                                              <span className="px-1 py-0.2 bg-black text-white font-mono text-[9px] rounded font-bold uppercase">
-                                                READY
-                                              </span>
-                                            )}
-                                            <span className="text-[10px] text-neutral-500 font-mono">
-                                              {port.cooldownSeconds}s
-                                            </span>
-                                          </div>
-                                        </div>
+                              {/* 3 Active Power Ports for the Impostor Team */}
+                              {(() => {
+                                const ports = currentImpostorInRoom.powerPorts && currentImpostorInRoom.powerPorts.length === 3
+                                  ? currentImpostorInRoom.powerPorts
+                                  : AllocationDatabase.getTeamPowerPorts(currentImpostorInRoom.id);
 
-                                        <div className="flex items-center justify-between gap-1 pt-1 border-t border-neutral-200/60">
-                                          <span className="text-[10px] text-neutral-500 truncate" title={port.description}>
-                                            {port.targetRequired ? '🎯 Crewmate Target' : '🌐 Room-Wide'}
-                                          </span>
-
-                                          <div className="flex items-center gap-1">
-                                            <button
-                                              type="button"
-                                              onClick={() => handlePausePowerPort(currentImpostorInRoom.id, port.port, port.status)}
-                                              title={isPaused ? 'Resume Power' : 'Pause Power (stops Impostor)'}
-                                              className={`px-1.5 py-0.5 rounded text-[10px] font-medium border flex items-center gap-0.5 transition ${
-                                                isPaused
-                                                  ? 'border-black bg-black text-white'
-                                                  : 'border-neutral-300 hover:border-black text-neutral-700'
-                                              }`}
-                                            >
-                                              {isPaused ? <Play className="w-2.5 h-2.5" /> : <Pause className="w-2.5 h-2.5" />}
-                                              <span>{isPaused ? 'Resume' : 'Pause'}</span>
-                                            </button>
-
-                                            <button
-                                              type="button"
-                                              onClick={() => handleOpenPowerModal(currentImpostorInRoom, port.port)}
-                                              title="Change Power Configuration"
-                                              className="px-1.5 py-0.5 rounded text-[10px] font-medium border border-neutral-300 hover:border-black text-neutral-700 flex items-center gap-0.5 transition"
-                                            >
-                                              <Edit2 className="w-2.5 h-2.5" />
-                                              <span>Change</span>
-                                            </button>
-
-                                            <button
-                                              type="button"
-                                              onClick={() => handleDeletePowerPort(currentImpostorInRoom.id, port.port)}
-                                              title="Clear Power Port"
-                                              className="px-1 py-0.5 rounded text-[10px] text-neutral-400 hover:text-red-600 transition"
-                                            >
-                                              <Trash2 className="w-2.5 h-2.5" />
-                                            </button>
-                                          </div>
-                                        </div>
+                                return (
+                                  <div className="pt-2 border-t border-neutral-800 space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                                        <Zap className="w-3 h-3 text-yellow-400" />
+                                        <span>3 Sabotage Ports</span>
                                       </div>
-                                    );
-                                  })}
-                                </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleResetCooldowns(currentImpostorInRoom.id)}
+                                        title="Reset cooldowns on all 3 ports"
+                                        className="text-[10px] text-neutral-400 hover:text-white flex items-center gap-1 font-mono transition cursor-pointer"
+                                      >
+                                        <RotateCcw className="w-2.5 h-2.5" />
+                                        <span>Reset CD</span>
+                                      </button>
+                                    </div>
+
+                                    <div className="space-y-1">
+                                      {ports.map(port => {
+                                        const isPaused = port.status === 'paused';
+                                        const isDisabled = port.status === 'disabled';
+                                        const now = Date.now();
+                                        const lastUsed = port.lastUsedAt ? new Date(port.lastUsedAt).getTime() : 0;
+                                        const elapsed = (now - lastUsed) / 1000;
+                                        const onCooldown = lastUsed > 0 && elapsed < port.cooldownSeconds;
+                                        const remainingCd = onCooldown ? Math.ceil(port.cooldownSeconds - elapsed) : 0;
+
+                                        return (
+                                          <div
+                                            key={port.port}
+                                            className={`p-1.5 border rounded text-[11px] transition flex flex-col gap-1 ${
+                                              isPaused
+                                                ? 'border-neutral-800 bg-neutral-900/60 text-neutral-400'
+                                                : isDisabled
+                                                ? 'border-neutral-900 bg-neutral-950 text-neutral-600'
+                                                : onCooldown
+                                                ? 'border-amber-900/60 bg-amber-950/20 text-amber-300'
+                                                : 'border-neutral-800 bg-neutral-900 text-neutral-200'
+                                            }`}
+                                          >
+                                            <div className="flex items-center justify-between gap-1">
+                                              <div className="flex items-center gap-1 min-w-0">
+                                                <span className="font-mono font-bold text-[9px] px-1 bg-neutral-800 text-neutral-300 rounded">
+                                                  P{port.port}
+                                                </span>
+                                                <span className="font-bold truncate text-[11px] text-white" title={port.name}>
+                                                  {port.name}
+                                                </span>
+                                              </div>
+
+                                              <div className="flex items-center gap-1 shrink-0">
+                                                {isPaused ? (
+                                                  <span className="px-1.5 py-0.2 bg-neutral-800 text-neutral-300 font-mono text-[9px] rounded font-semibold uppercase">
+                                                    PAUSED
+                                                  </span>
+                                                ) : isDisabled ? (
+                                                  <span className="px-1.5 py-0.2 bg-neutral-900 text-neutral-500 font-mono text-[9px] rounded font-semibold uppercase">
+                                                    EMPTY
+                                                  </span>
+                                                ) : onCooldown ? (
+                                                  <span className="px-1.5 py-0.2 bg-amber-900 text-amber-200 border border-amber-700 font-mono text-[9px] rounded font-bold">
+                                                    CD {remainingCd}s
+                                                  </span>
+                                                ) : (
+                                                  <span className="px-1.5 py-0.2 bg-emerald-950 border border-emerald-600 text-emerald-300 font-mono text-[9px] rounded font-bold uppercase">
+                                                    READY
+                                                  </span>
+                                                )}
+                                                <span className="text-[10px] text-neutral-500 font-mono">
+                                                  {port.cooldownSeconds}s
+                                                </span>
+                                              </div>
+                                            </div>
+
+                                            <div className="flex items-center justify-between gap-1 pt-1 border-t border-neutral-800/80">
+                                              <span className="text-[10px] text-neutral-400 truncate" title={port.description}>
+                                                {port.targetRequired ? '🎯 Crewmate Target' : '🌐 Room-Wide'}
+                                              </span>
+
+                                              <div className="flex items-center gap-1">
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handlePausePowerPort(currentImpostorInRoom.id, port.port, port.status)}
+                                                  title={isPaused ? 'Resume Power' : 'Pause Power (stops Impostor)'}
+                                                  className={`px-1.5 py-0.5 rounded text-[10px] font-medium border flex items-center gap-0.5 transition cursor-pointer ${
+                                                    isPaused
+                                                      ? 'border-neutral-600 bg-neutral-800 text-white'
+                                                      : 'border-neutral-700 hover:border-neutral-500 text-neutral-300'
+                                                  }`}
+                                                >
+                                                  {isPaused ? <Play className="w-2.5 h-2.5" /> : <Pause className="w-2.5 h-2.5" />}
+                                                  <span>{isPaused ? 'Resume' : 'Pause'}</span>
+                                                </button>
+
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleOpenPowerModal(currentImpostorInRoom, port.port)}
+                                                  title="Change Power Configuration"
+                                                  className="px-1.5 py-0.5 rounded text-[10px] font-medium border border-neutral-700 hover:border-neutral-500 text-neutral-300 flex items-center gap-0.5 transition cursor-pointer"
+                                                >
+                                                  <Edit2 className="w-2.5 h-2.5" />
+                                                  <span>Change</span>
+                                                </button>
+
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleDeletePowerPort(currentImpostorInRoom.id, port.port)}
+                                                  title="Clear Power Port"
+                                                  className="px-1 py-0.5 rounded text-[10px] text-neutral-500 hover:text-red-400 transition cursor-pointer"
+                                                >
+                                                  <Trash2 className="w-2.5 h-2.5" />
+                                                </button>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          ) : (
+                            <div className="p-3 border border-amber-300/80 rounded-lg bg-amber-50/70 space-y-2 text-xs">
+                              <div className="flex items-center gap-1.5 font-bold text-amber-900 text-[11px]">
+                                <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                                <span>No Impostor Designated</span>
                               </div>
-                            );
-                          })()}
-                        </div>
-                      );
-                    })()}
+                              <p className="text-[11px] text-amber-800">
+                                This station lacks an Impostor threat. Select or roll one below:
+                              </p>
+                              <div className="flex items-center gap-1.5 pt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRollRandomImpostor(room.id, room.name)}
+                                  disabled={roomTeams.length === 0}
+                                  title="Randomly pick 1 team in this room as Impostor"
+                                  className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-40 rounded text-[11px] font-semibold transition flex items-center gap-1 whitespace-nowrap shadow-2xs cursor-pointer"
+                                >
+                                  <Dices className="w-3 h-3" />
+                                  <span>Roll Impostor</span>
+                                </button>
 
-                    {/* Teams in Room */}
-                    <div className="space-y-2 flex-1">
-                      <span className="text-[11px] font-semibold text-neutral-500 uppercase block">
-                        Teams Inside:
-                      </span>
-
-                      {roomTeams.length === 0 ? (
-                        <div className="p-4 border border-dashed border-neutral-200 rounded text-center text-xs text-neutral-400">
-                          No teams assigned
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {roomTeams.map(t => (
-                            <div
-                              key={t.id}
-                              className={`p-2.5 border rounded text-xs space-y-1.5 transition ${
-                                t.isImpostor
-                                  ? 'border-black bg-neutral-900 text-white shadow-sm'
-                                  : 'border-neutral-200 bg-neutral-50 text-black'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between font-semibold">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span>{t.name}</span>
-                                  <span className="font-mono text-[10px] opacity-75">
-                                    ({t.teamCode || t.id})
-                                  </span>
-                                  {t.isImpostor ? (
-                                    <span className="px-1.5 py-0.5 bg-white text-black font-bold text-[9px] rounded uppercase tracking-wider">
-                                      IMPOSTOR
-                                    </span>
-                                  ) : (
-                                    <span className="px-1.5 py-0.5 border border-neutral-300 text-neutral-600 text-[9px] rounded uppercase">
-                                      Crewmate
-                                    </span>
-                                  )}
-                                </div>
-
-                                <div className="flex items-center gap-1.5">
-                                  <button
-                                    onClick={() => handleToggleTeamImpostor(t.id, t.isImpostor)}
-                                    className={`text-[10px] px-1.5 py-0.5 rounded border transition ${
-                                      t.isImpostor
-                                        ? 'border-neutral-600 hover:border-white text-neutral-300'
-                                        : 'border-neutral-300 hover:border-black text-black'
-                                    }`}
-                                  >
-                                    {t.isImpostor ? 'Make Crew' : 'Make Impostor'}
-                                  </button>
-
-                                  <button
-                                    onClick={() => handleAssignTeamToRoom(t.id, 'unassigned')}
-                                    className={`text-[11px] underline ${t.isImpostor ? 'text-neutral-400 hover:text-white' : 'text-neutral-500 hover:text-black'}`}
-                                  >
-                                    Remove
-                                  </button>
-                                </div>
-                              </div>
-
-                              <div className={`text-[11px] ${t.isImpostor ? 'text-neutral-300' : 'text-neutral-500'}`}>
-                                Players: {(t.memberDetails || []).map(m => m.name).join(', ') || 'None'}
+                                <select
+                                  value=""
+                                  onChange={e => handleSetRoomImpostor(room.id, e.target.value || null)}
+                                  disabled={roomTeams.length === 0}
+                                  className="flex-1 border border-amber-300 rounded px-1.5 py-1 text-[11px] outline-none bg-white font-medium text-amber-900 cursor-pointer"
+                                >
+                                  <option value="">Designate Squad...</option>
+                                  {roomTeams.map(t => (
+                                    <option key={t.id} value={t.id}>
+                                      Set: {t.name} ({t.teamCode || t.id})
+                                    </option>
+                                  ))}
+                                </select>
                               </div>
                             </div>
-                          ))}
+                          )}
                         </div>
-                      )}
-                    </div>
 
-                    {/* Add Team Dropdown */}
-                    <div className="border-t border-neutral-100 pt-3">
-                      <select
-                        onChange={e => {
-                          if (e.target.value) {
-                            handleAssignTeamToRoom(e.target.value, room.id);
-                            e.target.value = '';
-                          }
-                        }}
-                        defaultValue=""
-                        className="w-full border border-neutral-300 rounded px-2.5 py-1.5 text-xs outline-none bg-white"
-                      >
-                        <option value="" disabled>
-                          + Add a team to {room.name}...
-                        </option>
-                        {unassignedTeams.map(t => (
-                          <option key={t.id} value={t.id}>
-                            {t.name} ({t.memberDetails?.length || t.members?.length || 0} players)
+                        {/* Teams in Room */}
+                        <div className="space-y-2 mt-3 flex-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider block">
+                              Station Squads ({roomTeams.length})
+                            </span>
+                            <span className="text-[10px] font-mono text-neutral-400">
+                              {totalPlayersInRoom} operatives
+                            </span>
+                          </div>
+
+                          {roomTeams.length === 0 ? (
+                            <div className="p-4 border border-dashed border-neutral-300 rounded-lg text-center text-xs text-neutral-400 bg-neutral-50/50">
+                              No operative squads currently assigned.
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {roomTeams.map(t => (
+                                <div
+                                  key={t.id}
+                                  className={`p-2.5 border rounded-lg text-xs space-y-1.5 transition ${
+                                    t.isImpostor
+                                      ? 'border-neutral-900 bg-neutral-900 text-white shadow-sm'
+                                      : 'border-neutral-200 bg-neutral-50 text-black hover:border-neutral-300'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between font-semibold">
+                                    <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                                      <span className="truncate max-w-[150px]">{t.name}</span>
+                                      <span className={`font-mono text-[10px] px-1 py-0.2 rounded font-bold ${t.isImpostor ? 'bg-neutral-800 text-neutral-300' : 'bg-neutral-200 text-neutral-700'}`}>
+                                        {t.teamCode || t.id}
+                                      </span>
+                                      {t.isImpostor ? (
+                                        <span className="px-1.5 py-0.5 bg-red-600 text-white font-bold text-[9px] rounded uppercase tracking-wider flex items-center gap-0.5">
+                                          <Skull className="w-2.5 h-2.5" />
+                                          IMPOSTOR
+                                        </span>
+                                      ) : (
+                                        <span className="px-1.5 py-0.5 border border-neutral-300 bg-white text-neutral-700 text-[9px] rounded uppercase font-medium">
+                                          Crewmate
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <button
+                                        onClick={() => handleToggleTeamImpostor(t.id, t.isImpostor)}
+                                        className={`text-[10px] px-2 py-0.5 rounded border transition font-medium cursor-pointer ${
+                                          t.isImpostor
+                                            ? 'border-neutral-700 hover:border-neutral-500 text-neutral-300'
+                                            : 'border-neutral-300 hover:border-black text-black bg-white'
+                                        }`}
+                                      >
+                                        {t.isImpostor ? 'Make Crew' : 'Make Impostor'}
+                                      </button>
+
+                                      <button
+                                        onClick={() => handleAssignTeamToRoom(t.id, 'unassigned')}
+                                        title="Remove squad from this room"
+                                        className={`text-[11px] px-1.5 py-0.5 hover:underline cursor-pointer ${
+                                          t.isImpostor ? 'text-neutral-400 hover:text-white' : 'text-neutral-500 hover:text-black'
+                                        }`}
+                                      >
+                                        Remove
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  <div className={`text-[11px] truncate ${t.isImpostor ? 'text-neutral-400' : 'text-neutral-500'}`} title={(t.memberDetails || []).map(m => m.name).join(', ')}>
+                                    Operatives: {(t.memberDetails || []).map(m => m.name).join(', ') || 'No player records'}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Add Team Dropdown */}
+                      <div className="border-t border-neutral-100 pt-3 mt-3">
+                        <select
+                          onChange={e => {
+                            if (e.target.value) {
+                              handleAssignTeamToRoom(e.target.value, room.id);
+                              e.target.value = '';
+                            }
+                          }}
+                          defaultValue=""
+                          className="w-full border border-neutral-300 hover:border-black rounded-lg px-2.5 py-1.5 text-xs outline-none bg-white font-medium cursor-pointer transition"
+                        >
+                          <option value="" disabled>
+                            + Deploy Squad to {room.name}...
                           </option>
-                        ))}
-                      </select>
+                          {unassignedTeams.map(t => (
+                            <option key={t.id} value={t.id}>
+                              {t.name} ({t.memberDetails?.length || t.members?.length || 0} players)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+
+              {filteredRoomsForAllocation.length === 0 && (
+                <div className="p-12 border border-dashed border-neutral-300 rounded-xl text-center space-y-2 bg-neutral-50/50">
+                  <Building className="w-8 h-8 text-neutral-400 mx-auto" />
+                  <div className="font-bold text-sm text-neutral-700">No matching rooms found</div>
+                  <p className="text-xs text-neutral-500">
+                    No rooms match your search query or filter criteria. Try resetting the filters above.
+                  </p>
+                  <button
+                    onClick={() => { setAllocationSearchQuery(''); setAllocationFilter('all'); }}
+                    className="mt-2 px-3 py-1.5 bg-black text-white rounded-md text-xs font-medium cursor-pointer"
+                  >
+                    Reset Filters
+                  </button>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* ========================================================= */}
         {/* TAB 2: TEAMS & PLAYERS */}
