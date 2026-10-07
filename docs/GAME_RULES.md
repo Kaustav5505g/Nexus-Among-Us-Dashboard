@@ -1,6 +1,6 @@
 # NEXUS Event Official Rules & Playbook
 
-Welcome to **NEXUS: Coded Chaos & Tech Mystery**!  
+Welcome to **NEXUS: Coded Chaos & Tech Mystery**!
 > **"ONE REGISTRATION = TWO EVENTS! DOUBLE THE FUN, DOUBLE THE GLORY."**
 
 ---

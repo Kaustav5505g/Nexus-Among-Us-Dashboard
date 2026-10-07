@@ -14,24 +14,20 @@ Follow this guide to initialize the PostgreSQL database and real-time streaming 
 
 ---
 
-## 2. Execute Database Schema or Update Script
+## 2. Execute the Database Schema and Feature Migration
 
-### Option A: Updating an Existing Database (Recommended)
-If your Supabase project is already set up and you need to add the new **Sector Rooms**, **Powers Library**, **Team Codes**, and **3-Port Impostor Powers**:
-1. In your Supabase Project Dashboard, click on **SQL Editor** -> **New query**.
-2. Open migration [`supabase/migrations/20261007000000_add_rooms_and_powers.sql`](../supabase/migrations/20261007000000_add_rooms_and_powers.sql) (or [`supabase/schema.sql`](../supabase/schema.sql)).
-3. Paste the contents into the SQL Editor and click **Run**.
-   - Creates `public.rooms` and `public.powers_library`.
-   - Adds `team_code`, `assigned_room_id`, `assigned_room_name`, `assigned_zone`, `power_ports`, and `active_effects` to `public.teams`.
-   - Adds `team_id`, `target_team_id`, `target_team_name`, `room_name`, `power_name`, and `port_index` to `public.activity_logs`.
-   - Adds RLS policies and Realtime publication hooks for the new tables.
-   - Populates initial room definitions and the standard power library.
+For a new Supabase project, run the complete schema. If you already have a project, run the rooms and powers migration after the base schema to add the newer admin allocation and power features.
 
-### Option B: Fresh Database Setup
-For a brand-new Supabase project:
-1. Open [`supabase/schema.sql`](../supabase/schema.sql), copy its entire contents, and paste it into the SQL Editor.
-2. Click **Run** (or press `Ctrl+Enter` / `Cmd+Enter`).
-   - Automatically provisions all 8 tables, indexes, RLS policies, seeds, and Realtime streaming publication.
+1. In your Supabase Project Dashboard, click on the **SQL Editor** icon in the left navigation sidebar.
+2. Click **New query**.
+3. Open [`supabase/schema.sql`](../supabase/schema.sql) from this repository, copy its entire contents, and paste it into the SQL Editor.
+4. Click **Run** (or press `Ctrl+Enter` / `Cmd+Enter`).
+   - Provisions the teams, rooms, powers library, event controls, task, clue, sabotage, emergency, admin, and activity log tables used by the application.
+   - Automatically enables UUID extension and performance indexes.
+   - Automatically sets up Row Level Security (RLS) policies.
+   - Automatically attaches tables to `supabase_realtime` publication.
+   - Seeds station tasks, room definitions, powers, and facilitator profiles.
+5. For an existing database, also run [`supabase/migrations/20261007000000_add_rooms_and_powers.sql`](../supabase/migrations/20261007000000_add_rooms_and_powers.sql).
 
 ---
 
@@ -47,25 +43,13 @@ For a brand-new Supabase project:
 
 ## 4. Configure Local & Production Environment
 
-Add these credentials to your environment files:
+Create the repository-root `.env` from `.env.example`. The backend reads `SUPABASE_URL` and `SUPABASE_ANON_KEY` (or a server-only `SUPABASE_SERVICE_ROLE_KEY`). Vite reads the `VITE_`-prefixed values from the same root file:
 
-### Local Development (`frontend/.env`):
 ```env
+SUPABASE_URL=https://your-ref.supabase.co
+SUPABASE_ANON_KEY=your-supabase-anon-key
 VITE_SUPABASE_URL=https://your-ref.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJh...
+VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
 
-### Production Deployment (Vercel / Cloud):
-Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` under **Project Settings -> Environment Variables** in your hosting dashboard.
-
----
-
-## 5. Verification Checklist
-
-To confirm your Supabase database is connected and operational:
-1. Open the Supabase **Table Editor** and verify data exists in:
-   - `rooms` (e.g., Room 1, Room 2, Reactor, Electrical, Cafeteria, Navigation)
-   - `powers_library` (e.g., Sabotage Lights, Terminal Freeze, Comms Blackout)
-   - `admin_users` (Facilitator accounts)
-2. Log into the Admin Console (`frontend/index.html`) using a facilitator account.
-3. Perform any allocation or power configuration. Changes will synchronize to your Supabase tables in real time.
+The root `.env` is gitignored. Never expose a service-role key in frontend variables or commit credentials. For production, set the backend and frontend variables in your hosting provider's environment settings.

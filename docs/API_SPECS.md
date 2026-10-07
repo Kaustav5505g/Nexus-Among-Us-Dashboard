@@ -1,6 +1,6 @@
 # REST & WebSocket API Specification
 
-**Base URL**: `http://localhost:5000/api`  
+**Base URL**: `http://localhost:5000/api`
 **Reference Document**: [`docs/ARCHITECTURE_AND_INTEGRATION_GUIDE.md`](./ARCHITECTURE_AND_INTEGRATION_GUIDE.md)
 
 ---

@@ -15,61 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Dedicated Powers Arsenal & Powerset System (`Tab 4: Powers Arsenal`)**:
-  - Added dedicated top-level dashboard tab `4. Powers Arsenal` and global metric card tracking total powers in library.
-  - Implemented live arsenal overview cards: Total Powers, Targeted Strikes, Room-Wide / AOE, and Active Ready powers.
-  - Interactive filter pills (`All Powers`, `Targeted Strikes`, `Room-Wide AOE`) and instant power search bar.
-  - **Create & Edit Power Modal**: Allows admins to define custom powers with custom name, slug ID, description, cooldown (seconds), duration (seconds), target requirement (`Target Team` vs `Entire Room`), and initial operational status (`READY` vs `PAUSED`).
-  - Added 1-click Pause/Resume toggle for individual powers in the library and instant deletion with live Supabase synchronization.
-  - Added 1-click `Reset to Defaults` button to restore the standard 6-power arsenal anytime.
-- **Comprehensive Room Settings & Inspection Popup Modal (`Inspect ↗`)**:
-  - Added high-contrast `Inspect ↗` button on all sector room cards across Tab 1 (`Room Allocation`) and Tab 3 (`Rooms & POCs`).
-  - Modal features full room occupancy progress bar (`XX / XX Players`, capacity percentage, and capacity alert badge).
-  - Displays coordinator POC profile: contact name, direct phone link, email link, and room notes, with a 1-click button to launch the Room & POC Edit modal.
-  - Live Impostor assignment banner for that room, with instant Random Impostor Roll (`🎲 Roll Random Impostor`) and custom admin squad selector dropdown.
-  - Live 3-Port Impostor Power Console inside the room popup, featuring live cooldown timers, status badges, Pause/Resume, Change/Swap, Clear Port, and Reset All Cooldowns.
-  - Full room roster listing all deployed squads and every registered player member with leader/contact tags, role tags, and direct room reallocation dropdowns.
-- **Live Supabase Database Waste Cleanup**:
-  - Inspected and verified all live Supabase tables (`ezbselibyrmernjmhrnb.supabase.co`).
-  - Purged test/garbage team record (`Si` - `af73389f-3e38-4fa1-ae1c-ac1be65b6914`).
-  - Confirmed clean state across `teams` (6 official squads), `rooms` (6 sector rooms), `powers_library` (6 standard powers), `admin_users` (4 official staff), `activity_logs`, `sabotage_events`, and `emergency_meetings`.
-- **Comprehensive Technical Architecture & Backend Blueprint (`docs/ARCHITECTURE_AND_INTEGRATION_GUIDE.md`)**:
-  - Detailed system architecture diagram covering Admin Operations Console, Player Login Gateway, Player Terminal, Local State Engine, and Supabase Cloud Platform.
-  - Complete end-to-end operational workflow breakdown: RBAC permissions, dynamic sector room allocations, cryptographic Impostor rolls vs manual overrides, 3-port power lifecycle, and hostile effect action locks.
-  - Exhaustive database schema documentation for `public.teams`, `public.rooms`, `public.powers_library`, `public.admin_users`, and `public.activity_logs`.
-  - Concrete backend handoff roadmap and implementation blueprint for building upcoming multiplayer Crewmate and Impostor game engines.
-- **Dedicated Supabase Migration Pipeline**:
-  - Created [`supabase/migrations/20261007000000_add_rooms_and_powers.sql`](supabase/migrations/20261007000000_add_rooms_and_powers.sql) for execution in Supabase SQL Editor.
-  - Provisions `public.rooms` and `public.powers_library` tables, indexes, RLS policies, and Realtime publications.
-  - Adds `team_code`, `assigned_room_id`, `assigned_room_name`, `assigned_zone`, `power_ports`, and `active_effects` to `public.teams`.
-  - Enhances `public.activity_logs` with target squad IDs, room names, power names, and port tracking.
-- **Dynamic Supabase Cloud Replication & Automatic Local Cache Hydration (`frontend/src/lib/gameDatabase.ts`)**:
-  - Non-blocking asynchronous sync pipelines (`syncRoomsToSupabase`, `syncTeamsToSupabase`, `syncStaffToSupabase`, `syncPowersToSupabase`, `syncLogToSupabase`) ensuring all mutations sync directly to Supabase while maintaining instant UI performance and offline tolerance.
-  - Added `syncAllFromSupabase()` engine invoked on Admin Console mount to hydrate and reconcile local state with cloud records.
-  - Dynamic powers library persistence (`getPowerLibrary`, `savePowerLibrary`, `addPowerToLibrary`, `deletePowerFromLibrary`) eradicating hardcoded power constants.
-- **Full Project Documentation Alignment**:
-  - Updated [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) with system components, sector room mappings, and 3-port power systems.
-  - Updated [`docs/API_SPECS.md`](docs/API_SPECS.md) with complete REST endpoint definitions for rooms, teams, powers, staff users, and logs.
-  - Updated [`docs/SUPABASE_SETUP.md`](docs/SUPABASE_SETUP.md) with unified schema migration, new tables (`rooms`, `powers_library`), and verification steps.
-  - Updated [`docs/GAME_RULES.md`](docs/GAME_RULES.md) with sector room mechanics, 3-port power controls, and target lockout rules.
-  - Updated [`docs/TASK_BOARD.md`](docs/TASK_BOARD.md) with completed frontend milestones and backend multiplayer engine roadmap.
-  - Updated [`docs/EVENT_INFO.md`](docs/EVENT_INFO.md) and [`README.md`](README.md) with up-to-date repository structure and links.
-- **3-Port Impostor Power System & Admin Controls**:
-  - Implemented 3 dedicated Power Ports (Port 1, Port 2, Port 3) for each Impostor team with live status tracking (`READY`, `PAUSED`, `COOLDOWN: Xs`, `EMPTY`).
-  - **Admin Port Visibility**: Admins can view all 3 power ports for Impostor teams directly within each room card in Tab 1 (`Room Allocation`).
-  - **Admin Pause / Resume**: 1-click pause toggle to freeze any power port, preventing the Impostor team from triggering it, and resume it when desired.
-  - **Admin Change / Swap**: Dedicated Power Configuration Modal allowing admins to choose from the Standard Power Library (*Sabotage Lights*, *Terminal Freeze*, *Comms Blackout*, *Door Lockdown*, *Fake Clue Inject*, *Radio Jammer*) or configure custom powers with custom names, cooldowns, durations, and target requirements.
-  - **Admin Delete / Clear**: 1-click delete button to empty any power port.
-  - **Admin Reset Cooldowns**: 1-click reset button to instantly clear all recharging cooldowns on all 3 ports.
-- **Impostor Power Targeting on Other Crewmates (`frontend/player.html`)**:
-  - Impostor terminal displays their 3 equipped power ports with real-time status and cooldown indicators.
-  - **Target Crewmate Selector**: For targeted powers (*Terminal Freeze*, *Comms Blackout*, *Door Lockdown*, *Fake Clue Inject*, *Radio Jammer*), Impostors open an interactive modal to pick any Crewmate team currently assigned to their room and transmit the power strike.
-  - **Room-Wide Sabotages**: Room-wide powers (*Sabotage Lights*) apply across all other teams in the sector simultaneously.
-- **Hostile Effect Alerts & Terminal Lockdown for Targeted Crewmates (`frontend/player.html`)**:
-  - Targeted Crewmate teams instantly see a high-contrast pulsing alert card (`⚠️ HOSTILE IMPOSTOR POWER ACTIVE`) detailing the inflicted power, description, and live remaining duration countdown.
-  - Restrictive powers (*Terminal Freeze*, *Comms Blackout*) disable Crewmate terminal action buttons for the duration of the effect.
-- **Comprehensive Activity & Audit Logging**:
-  - All power strikes with target details, room context, admin pauses, resumes, port reconfigurations, and deletions are recorded in `nexus_activity_logs_v2` and streamed live into Tab 5 (`Activity Logs`).
+- **Database-backed player portal**: Added validated Team ID/player-name sign-in and session refresh backed by Supabase, including current team role, room allocation, and event session details. Configured the separate login, admin, and player Vite pages and local API proxy.
+- **Supabase environment configuration**: Backend and Vite load the repository-root `.env`; checked-in examples contain placeholders only.
+- **Rooms and powers schema**: Added the rooms/powers migration and database-backed admin powers and room management support.
 - **Room-Level Impostor Allotment Engine**:
   - Added support for rooms containing any number of teams ($N$ teams per room), where 1 entire team in the room is designated as the **IMPOSTOR** team while the remaining teams act as **CREWMATE** teams.
   - **🎲 Random Impostor Roll**: 1-click cryptographically secure random roll using `window.crypto.getRandomValues` to select 1 team out of all teams in that room as the Impostor.

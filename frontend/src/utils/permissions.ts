@@ -86,4 +86,3 @@ export const isCurrentAdityaUser = (
 ): boolean => {
   return isRootMasterAccount(currentUser);
 };
-

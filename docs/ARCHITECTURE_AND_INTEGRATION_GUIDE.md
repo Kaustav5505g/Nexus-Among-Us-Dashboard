@@ -1,8 +1,8 @@
 # NEXUS Among Us Dashboard • Architecture & Integration Guide
 
-**Document Version**: 2.0.0  
-**Target Audience**: Nexus Technical Leads, Full-Stack Developers, Backend Game Engineers, DevOps  
-**Maintainers**: `@Tejas-Narula`, `@synthreaper`  
+**Document Version**: 2.0.0
+**Target Audience**: Nexus Technical Leads, Full-Stack Developers, Backend Game Engineers, DevOps
+**Maintainers**: `@Tejas-Narula`, `@synthreaper`
 
 ---
 

@@ -64,7 +64,7 @@ ALTER TABLE public.activity_logs ADD COLUMN IF NOT EXISTS port_index INT;
 
 -- Update activity_logs type check constraint
 ALTER TABLE public.activity_logs DROP CONSTRAINT IF EXISTS activity_logs_type_check;
-ALTER TABLE public.activity_logs ADD CONSTRAINT activity_logs_type_check 
+ALTER TABLE public.activity_logs ADD CONSTRAINT activity_logs_type_check
     CHECK (type IN ('task', 'sabotage', 'emergency', 'clue', 'kill', 'system', 'admin', 'power', 'impostor_assign', 'login'));
 
 -- 5. ROW LEVEL SECURITY (RLS) FOR NEW TABLES
@@ -87,13 +87,13 @@ CREATE POLICY "Service role has full access to powers_library" ON public.powers_
 DO $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM pg_publication_tables 
+        SELECT 1 FROM pg_publication_tables
         WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'rooms'
     ) THEN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.rooms;
     END IF;
     IF NOT EXISTS (
-        SELECT 1 FROM pg_publication_tables 
+        SELECT 1 FROM pg_publication_tables
         WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'powers_library'
     ) THEN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.powers_library;

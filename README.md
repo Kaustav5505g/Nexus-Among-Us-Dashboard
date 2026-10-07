@@ -45,11 +45,10 @@
 
 ## 📖 Overview
 
-The **NEXUS Among Us Dashboard** is an enterprise-grade real-time operations and gameplay platform engineered by the **NEXUS Club** to orchestrate two simultaneous competitive flagship events:
-1. **Coded Chaos (Among Us Arena)**: Physical & digital sector rooms, squad allocations, 3-port Impostor power execution, sabotage alarms, hostile effect action locks, and emergency meeting protocols.
-2. **Tech Mystery (Detective Arena)**: Evidence dossiers, forensic decoding terminal, cipher flag verification (ROT13, Base64, Hexadecimal, Binary).
-3. **Operations Console**: High-efficiency black & white administrative interface for managing sector rooms, squads, player rosters, staff accounts (Master Admin, Station Admin, Moderator), and telemetry audit logs.
-4. **Player Login & Terminal**: Dedicated squad login gateway (`frontend/index2.html`) and station terminal (`frontend/player.html`) displaying role detection, hostile threat status, and 3-port power console.
+The **NEXUS Among Us Dashboard** is an enterprise-grade real-time web platform engineered by the **NEXUS Club** to orchestrate two simultaneous competitive club flagship events:
+1. **Coded Chaos (Among Us Arena)**: Real-time station map, task matrix, sabotage alarms (Reactor Meltdown, Oxygen Depletion, Lights), and emergency meeting voting protocol.
+2. **Tech Mystery (Detective Arena)**: Evidence dossier, forensic terminal, cipher flag verification (ROT13, Base64, Hexadecimal, Binary).
+3. **Live Spectator & Leaderboard Hub**: Low-latency WebSocket synchronization between players, spectator projectors, and Game Master facilitators.
 
 ---
 
@@ -79,30 +78,30 @@ Nexus-Among-Us-Dashboard/
 │   │   ├── sockets/              # Socket.IO client/server event handlers
 │   │   └── index.ts              # Server entry point
 │   ├── package.json
-│   └── tsconfig.json
+│   ├── tsconfig.json
+│   └── Dockerfile
 ├── frontend/                     # React 18 + Vite + TypeScript + Tailwind CSS (Vercel-Ready)
 │   ├── public/logo.jpeg          # App favicon and branding
 │   ├── src/
-│   │   ├── lib/                  # AllocationDatabase, Supabase client
+│   │   ├── lib/supabase.ts       # Supabase client with realtime hooks
 │   │   ├── components/           # UI components, modals, HUD widgets
-│   │   ├── pages/                # Admin Console (AmongUsAdmin.tsx), Hub, Mystery
+│   │   ├── pages/                # Views (Arena, Mystery, Hub, Leaderboard)
 │   │   ├── types/                # Shared frontend TypeScript interfaces
 │   │   ├── App.tsx               # Main application routing & event hub
 │   │   └── main.tsx              # React mounting root
-│   ├── index.html                # Admin Operations Console entry point
-│   ├── index2.html               # Player authentication login portal
-│   ├── player.html               # Live player station terminal ("To be made by backend team")
+│   ├── vercel.json               # Vercel SPA rewrites & security headers
 │   ├── package.json
-│   └── vite.config.ts
+│   ├── vite.config.ts
+│   └── tailwind.config.js
 ├── docs/                         # Team Documentation & Playbooks
-│   ├── ARCHITECTURE_AND_INTEGRATION_GUIDE.md # Exhaustive technical architecture & backend blueprint
+│   ├── DEPLOYMENT_VERCEL.md      # Vercel deployment walkthrough
+│   ├── SUPABASE_SETUP.md         # Supabase PostgreSQL & Realtime setup guide
 │   ├── ARCHITECTURE.md           # System design & WebSocket event protocol
 │   ├── API_SPECS.md              # REST & WebSocket endpoint specifications
-│   ├── SUPABASE_SETUP.md         # Supabase PostgreSQL & Realtime setup guide
-│   ├── GAME_RULES.md             # Official competition rules & 3-port power mechanics
+│   ├── GAME_RULES.md             # Official competition rules & scoring formula
+│   ├── GIT_WORKFLOW.md           # Multi-user git branching & contribution guide
 │   ├── TASK_BOARD.md             # Module tracking & developer task distribution
-│   ├── EVENT_INFO.md             # NEXUS promotional kit & links
-│   └── DEPLOYMENT_VERCEL.md      # Vercel deployment walkthrough
+│   └── EVENT_INFO.md             # NEXUS promotional kit & links
 ├── vercel.json                   # Root Vercel deployment configuration
 ├── docker-compose.yml            # Multi-container Docker orchestration
 ├── CONTRIBUTING.md               # Club contributor guidelines
@@ -150,20 +149,23 @@ npm run install:all
 ```
 
 ### 3. Configure Environment Variables
-Copy the sample environment files:
+Create a repository-root `.env` from `.env.example` and set your Supabase project URL and anon key. The same root file is read by the backend and Vite:
 ```bash
-# Backend configuration
-cp backend/.env.example backend/.env
-
-# Frontend configuration
-cp frontend/.env.example frontend/.env
+cp .env.example .env
 ```
+Set `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `VITE_SUPABASE_URL`, and
+`VITE_SUPABASE_ANON_KEY`. The root `.env` is gitignored; never commit a
+service-role key or expose it through a `VITE_` variable.
 
 ### 4. Run Development Servers Concurrently
 Start both the Express backend (`http://localhost:5000`) and Vite frontend (`http://localhost:5173`) together:
 ```bash
 npm run dev
 ```
+
+Open the player sign-in at `http://localhost:5173/login.html`, the admin
+console at `http://localhost:5173/admin.html`, and the player terminal at
+`http://localhost:5173/player.html`.
 
 Alternatively, you can run services individually:
 ```bash
@@ -182,7 +184,7 @@ npm run dev:frontend
 1. Create a project at [supabase.com](https://supabase.com).
 2. In the **SQL Editor**, run [`supabase/schema.sql`](./supabase/schema.sql) to create tables, RLS policies, and realtime publication.
 3. Run [`supabase/seed.sql`](./supabase/seed.sql) to populate initial station tasks and mystery dossiers.
-4. Copy `Project URL` and `anon key` to your `.env`.
+4. Copy `Project URL` and `anon key` to the root `.env` using the variable names above.
 > 📖 Detailed guide: [docs/SUPABASE_SETUP.md](./docs/SUPABASE_SETUP.md)
 
 ### 2. ▲ Vercel Hosting (One-Click)
