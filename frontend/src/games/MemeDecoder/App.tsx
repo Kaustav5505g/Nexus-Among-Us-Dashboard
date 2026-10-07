@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { memeData, Meme } from './memeData';
 import { Terminal, Scan, CheckCircle2, XCircle, Play, RotateCcw } from 'lucide-react';
+import { AllocationDatabase } from '../../lib/gameDatabase';
 
 type GameState = 'start' | 'playing' | 'won' | 'lost';
 
@@ -12,6 +13,7 @@ export default function MemeDecoder() {
   const [blurAmount, setBlurAmount] = useState<number>(8);
   const [revealedHints, setRevealedHints] = useState<number[]>([]);
   const [hintTimer, setHintTimer] = useState<number>(0);
+  const [awardNotice, setAwardNotice] = useState<string>('');
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -125,8 +127,29 @@ export default function MemeDecoder() {
         setRevealedHints([]); // Reset hints for next meme
         setHintTimer(0); // Reset hint timer
       } else {
-        setScore((prev) => prev + 10);
+        const finalScore = score + 10;
+        setScore(finalScore);
         setGameState('won');
+
+        try {
+          const sessionRaw = localStorage.getItem('nexus_player_session');
+          if (sessionRaw) {
+            const session = JSON.parse(sessionRaw);
+            if (session?.teamId) {
+              const res = AllocationDatabase.recordGameCompletion(
+                session.teamId,
+                'memedecoder',
+                'Meme Decoder Terminal',
+                finalScore
+              );
+              if (res.success) {
+                setAwardNotice(`✅ MISSION ACCOMPLISHED! Meme station decoded for Team ${session.teamName || session.teamId}. Logged to central control.`);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('Meme decoder score notice:', err);
+        }
       }
     } else {
       // Wrong - shake effect
@@ -189,9 +212,17 @@ export default function MemeDecoder() {
 
       {/* Header */}
       <header className="w-full max-w-4xl flex justify-between items-center mb-8 border-b-2 border-green-800 pb-4 z-10">
-        <div className="flex items-center gap-2">
-          <Terminal className="w-8 h-8" />
-          <h1 className="text-3xl font-bold tracking-tighter uppercase glow-text">Meme_Decoder.exe</h1>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => window.location.replace('/player')}
+            className="px-3 py-1 bg-zinc-900 border border-green-800 hover:border-green-500 text-xs text-green-400 rounded transition"
+          >
+            ← Back to Player
+          </button>
+          <div className="flex items-center gap-2">
+            <Terminal className="w-6 h-6" />
+            <h1 className="text-2xl font-bold tracking-tighter uppercase glow-text">Meme_Decoder.exe</h1>
+          </div>
         </div>
         <div className="text-xl">
           {currentIndex + 1} / {gameMemes.length || '?'}
@@ -282,17 +313,31 @@ export default function MemeDecoder() {
                 {gameState === 'won' ? 'SYSTEM SECURED' : 'CRITICAL FAILURE'}
               </h2>
 
+              {awardNotice && (
+                <div className="bg-emerald-950/80 border border-emerald-500 text-emerald-200 px-4 py-2 rounded text-sm font-bold my-4">
+                  {awardNotice}
+                </div>
+              )}
+
               <p className="text-xl mb-8 text-zinc-400">
                 {score / 10} / {gameMemes.length} decoded
               </p>
 
-              <button
-                onClick={handleStart}
-                className="px-8 py-3 bg-zinc-800 border border-zinc-600 hover:bg-zinc-700 hover:border-zinc-400 text-white transition-all uppercase tracking-widest flex items-center gap-2 mx-auto"
-              >
-                <RotateCcw className="w-4 h-4" />
-                Reboot System
-              </button>
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={handleStart}
+                  className="px-6 py-3 bg-zinc-800 border border-zinc-600 hover:bg-zinc-700 hover:border-zinc-400 text-white transition-all uppercase tracking-widest flex items-center gap-2"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Reboot System
+                </button>
+                <button
+                  onClick={() => window.location.replace('/player')}
+                  className="px-6 py-3 bg-green-950 border border-green-600 hover:bg-green-900 text-green-300 transition-all uppercase tracking-widest"
+                >
+                  ← Player Terminal
+                </button>
+              </div>
             </div>
           </div>
         )}

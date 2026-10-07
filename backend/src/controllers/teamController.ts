@@ -6,17 +6,20 @@ type DatabaseTeam = {
   id: string;
   name: string;
   leader_name: string | null;
+  phone: string | null;
   members: unknown;
   status: string | null;
   badge_code: string | null;
+  team_code?: string | null;
   assigned_room: string | null;
   is_impostor: boolean | null;
   impostor_player_name: string | null;
 };
 
 const normalizeName = (name: string) => name.trim().replace(/\s+/g, ' ').toLowerCase();
+const normalizePhone = (phone: string) => phone.replace(/\D/g, '');
 
-const readPlayerSession = async (teamId: string, playerName: string) => {
+const readPlayerSession = async (teamId: string, credential: string) => {
   if (!isSupabaseConfigured) {
     throw new Error('Supabase configuration is missing or still contains placeholders. Update the root .env with your project URL and anon key, then restart the backend.');
   }
@@ -25,30 +28,33 @@ const readPlayerSession = async (teamId: string, playerName: string) => {
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(normalizedTeamId);
   let team: DatabaseTeam | null = null;
 
-  const badgeResult = await supabase
-    .from('teams')
-    .select('id, name, leader_name, members, status, badge_code, assigned_room, is_impostor, impostor_player_name')
-    .eq('badge_code', normalizedTeamId)
-    .maybeSingle();
-  if (badgeResult.error) {
-    console.error('Supabase player team lookup failed:', badgeResult.error);
+  const selectCols = 'id, name, leader_name, phone, members, status, badge_code, team_code, assigned_room, is_impostor, impostor_player_name';
+
+  // Search by team_code, badge_code, or UUID id
+  const lookupQuery = isUuid
+    ? supabase.from('teams').select(selectCols).or(`team_code.eq.${normalizedTeamId},badge_code.eq.${normalizedTeamId},id.eq.${normalizedTeamId}`).maybeSingle()
+    : supabase.from('teams').select(selectCols).or(`team_code.eq.${normalizedTeamId},badge_code.eq.${normalizedTeamId}`).maybeSingle();
+
+  const lookupResult = await lookupQuery;
+  if (lookupResult.error) {
+    console.error('Supabase player team lookup failed:', lookupResult.error);
     throw new Error('Player sign-in could not reach the team database.');
   }
-  team = badgeResult.data as DatabaseTeam | null;
+  team = lookupResult.data as DatabaseTeam | null;
 
-  if (!team && isUuid) {
-    const idResult = await supabase
-      .from('teams')
-      .select('id, name, leader_name, members, status, badge_code, assigned_room, is_impostor, impostor_player_name')
-      .eq('id', normalizedTeamId)
-      .maybeSingle();
-    if (idResult.error) {
-      console.error('Supabase player team lookup failed:', idResult.error);
-      throw new Error('Player sign-in could not reach the team database.');
-    }
-    team = idResult.data as DatabaseTeam | null;
+  if (!team || team.status !== 'active') {
+    return null;
   }
 
+  // Check 1: Phone number match against leader mobile number
+  const inputPhone = normalizePhone(credential);
+  const teamPhone = team.phone ? normalizePhone(team.phone) : '';
+  const isPhoneMatch =
+    inputPhone.length >= 7 &&
+    teamPhone.length >= 7 &&
+    (teamPhone.endsWith(inputPhone) || inputPhone.endsWith(teamPhone));
+
+  // Check 2: Member / leader name match (fallback)
   const members = Array.isArray(team?.members) ? team.members : [];
   const memberNames = members
     .map((member) => {
@@ -61,7 +67,9 @@ const readPlayerSession = async (teamId: string, playerName: string) => {
     .filter(Boolean);
   if (team?.leader_name) memberNames.push(team.leader_name);
 
-  if (!team || team.status !== 'active' || !memberNames.some((name) => normalizeName(name) === normalizeName(playerName))) {
+  const isNameMatch = memberNames.some((name) => normalizeName(name) === normalizeName(credential));
+
+  if (!isPhoneMatch && !isNameMatch) {
     return null;
   }
 
@@ -70,25 +78,36 @@ const readPlayerSession = async (teamId: string, playerName: string) => {
     .select('id, status, current_round, elapsed_seconds, active_sabotage, emergency_active, updated_at')
     .eq('id', 'primary_match')
     .maybeSingle();
-  if (sessionResult.error) {
-    console.error('Supabase event session lookup failed:', sessionResult.error);
-    throw new Error('The event session could not be loaded from the database.');
-  }
-  if (!sessionResult.data) {
-    throw new Error('No event session is configured in the database.');
-  }
+
+  const defaultSession = {
+    id: 'primary_match',
+    status: 'running',
+    current_round: 1,
+    elapsed_seconds: 0,
+    active_sabotage: null,
+    emergency_active: false,
+    updated_at: new Date().toISOString(),
+  };
+
+  const sessionData = sessionResult?.data || defaultSession;
 
   const isImpostor = Boolean(team.is_impostor);
   const impostorPlayerName = team.impostor_player_name;
   const isDesignatedImpostor =
     isImpostor &&
     (typeof impostorPlayerName !== 'string' ||
-      normalizeName(impostorPlayerName) === normalizeName(playerName));
+      normalizeName(impostorPlayerName) === normalizeName(credential) ||
+      isPhoneMatch);
+
+  const displayName = team.leader_name || 'Team Leader';
+
   return {
     team: {
       id: team.id,
       name: team.name,
-      teamCode: team.badge_code || team.id,
+      teamCode: team.team_code || team.badge_code || team.id,
+      leaderName: team.leader_name,
+      phone: team.phone,
       status: team.status,
       assignedRoom: team.assigned_room,
       isImpostor: isDesignatedImpostor,
@@ -96,36 +115,46 @@ const readPlayerSession = async (teamId: string, playerName: string) => {
       impostorPlayerName: team.impostor_player_name,
     },
     player: {
-      name: playerName.trim().replace(/\s+/g, ' '),
+      name: displayName,
+      phone: team.phone,
       role: isDesignatedImpostor ? 'impostor' : 'crewmate',
       isDesignatedImpostor,
+      isLeader: true,
     },
     eventSession: {
-      id: sessionResult.data.id,
-      status: sessionResult.data.status,
-      currentRound: sessionResult.data.current_round,
-      elapsedSeconds: sessionResult.data.elapsed_seconds,
-      activeSabotage: sessionResult.data.active_sabotage,
-      emergencyActive: sessionResult.data.emergency_active,
-      updatedAt: sessionResult.data.updated_at,
+      id: sessionData.id,
+      status: sessionData.status,
+      currentRound: sessionData.current_round,
+      elapsedSeconds: sessionData.elapsed_seconds,
+      activeSabotage: sessionData.active_sabotage,
+      emergencyActive: sessionData.emergency_active,
+      updatedAt: sessionData.updated_at,
     },
   };
 };
 
 const getPlayerCredentials = (body: unknown) => {
   if (!body || typeof body !== 'object') return null;
-  const { teamId, playerName } = body as Record<string, unknown>;
+  const { teamId, phone, mobileNumber, playerName } = body as Record<string, unknown>;
   if (
     typeof teamId !== 'string' ||
-    !/^[a-z0-9][a-z0-9-]{1,39}$/i.test(teamId.trim()) ||
-    typeof playerName !== 'string' ||
-    playerName.trim().length < 2 ||
-    playerName.trim().length > 60 ||
-    /[\u0000-\u001f\u007f]/u.test(playerName)
+    !/^[a-z0-9][a-z0-9-]{1,39}$/i.test(teamId.trim())
   ) {
     return null;
   }
-  return { teamId: teamId.trim(), playerName: playerName.trim().replace(/\s+/g, ' ') };
+
+  const credential = (
+    (typeof phone === 'string' && phone.trim()) ||
+    (typeof mobileNumber === 'string' && mobileNumber.trim()) ||
+    (typeof playerName === 'string' && playerName.trim()) ||
+    ''
+  );
+
+  if (!credential || credential.length < 2 || credential.length > 60 || /[\u0000-\u001f\u007f]/u.test(credential)) {
+    return null;
+  }
+
+  return { teamId: teamId.trim(), credential };
 };
 
 export const loginPlayer = async (req: Request, res: Response) => {
@@ -133,14 +162,14 @@ export const loginPlayer = async (req: Request, res: Response) => {
   if (!credentials) {
     return res.status(400).json({
       success: false,
-      message: 'Enter a valid Team ID and a player name between 2 and 60 characters.',
+      message: 'Enter a valid Team ID and Team Leader Mobile Number.',
     });
   }
 
   try {
-    const data = await readPlayerSession(credentials.teamId, credentials.playerName);
+    const data = await readPlayerSession(credentials.teamId, credentials.credential);
     if (!data) {
-      return res.status(401).json({ success: false, message: 'Team ID or player name was not recognized.' });
+      return res.status(401).json({ success: false, message: 'Team ID or Leader Mobile Number was not recognized.' });
     }
     return res.json({ success: true, data });
   } catch (error) {
@@ -152,20 +181,35 @@ export const loginPlayer = async (req: Request, res: Response) => {
   }
 };
 
+interface CachedSessionItem {
+  data: any;
+  cachedAt: number;
+}
+const sessionCache = new Map<string, CachedSessionItem>();
+const SESSION_CACHE_TTL = 3000; // 3 seconds TTL
+
 export const getPlayerSession = async (req: Request, res: Response) => {
   const credentials = getPlayerCredentials(req.body);
   if (!credentials) {
     return res.status(400).json({
       success: false,
-      message: 'A valid Team ID and player name are required to refresh the player session.',
+      message: 'A valid Team ID and Leader Mobile Number are required to refresh the player session.',
     });
   }
 
+  const cacheKey = `${credentials.teamId.toLowerCase()}_${credentials.credential.toLowerCase()}`;
+  const cached = sessionCache.get(cacheKey);
+  if (cached && Date.now() - cached.cachedAt < SESSION_CACHE_TTL) {
+    return res.json({ success: true, data: cached.data });
+  }
+
   try {
-    const data = await readPlayerSession(credentials.teamId, credentials.playerName);
+    const data = await readPlayerSession(credentials.teamId, credentials.credential);
     if (!data) {
+      sessionCache.delete(cacheKey);
       return res.status(401).json({ success: false, message: 'Player session is no longer valid.' });
     }
+    sessionCache.set(cacheKey, { data, cachedAt: Date.now() });
     return res.json({ success: true, data });
   } catch (error) {
     console.error('Player session refresh failed:', error);

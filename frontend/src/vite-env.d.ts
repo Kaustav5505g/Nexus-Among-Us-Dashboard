@@ -10,3 +10,18 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+declare module '*.jsx' {
+  const component: React.ComponentType<any>;
+  export default component;
+}
+
+declare module './games/Wordle' {
+  const component: React.ComponentType<any>;
+  export default component;
+}
+
+declare module './games/Emoji/Emoji' {
+  const component: React.ComponentType<any>;
+  export default component;
+}

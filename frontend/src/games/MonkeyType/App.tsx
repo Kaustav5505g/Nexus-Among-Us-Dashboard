@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import Navbar from './components/Navbar.tsx';
-import TypingTest from './components/TypingTest.tsx';
-import ResultView from './components/ResultView.tsx';
-import ThemeSelector from './components/ThemeSelector.tsx';
-import { THEMES } from './constants.tsx';
+import Navbar from './components/Navbar';
+import TypingTest from './components/TypingTest';
+import ResultView from './components/ResultView';
+import ThemeSelector from './components/ThemeSelector';
+import { THEMES } from './constants';
 import { TestSettings, TestResult } from './types';
+import { AllocationDatabase } from '../../lib/gameDatabase';
 import './App.css';
 
 const MonkeyType: React.FC = () => {
@@ -16,6 +17,7 @@ const MonkeyType: React.FC = () => {
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [isTestRunning, setIsTestRunning] = useState(false);
   const [showThemeSelector, setShowThemeSelector] = useState(false);
+  const [awardNotice, setAwardNotice] = useState('');
 
   const activeTheme = useMemo(() =>
     THEMES.find(t => t.id === settings.theme) || THEMES[0],
@@ -30,6 +32,26 @@ const MonkeyType: React.FC = () => {
   const handleTestEnd = (result: TestResult) => {
     setTestResult(result);
     setIsTestRunning(false);
+
+    try {
+      const sessionRaw = localStorage.getItem('nexus_player_session');
+      if (sessionRaw) {
+        const session = JSON.parse(sessionRaw);
+        if (session?.teamId) {
+          const res = AllocationDatabase.recordGameCompletion(
+            session.teamId,
+            'monkeytype',
+            'Code Typer Mission',
+            Math.round(result.wpm)
+          );
+          if (res.success) {
+            setAwardNotice(`✅ MISSION ACCOMPLISHED! Terminal code verified for Team ${session.teamName || session.teamId}. Logged to central control.`);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('MonkeyType score error:', e);
+    }
   };
 
   const startTest = () => {
@@ -53,6 +75,20 @@ const MonkeyType: React.FC = () => {
         isTestRunning={isTestRunning}
         onReset={resetTest}
       />
+
+      <div className="max-w-5xl mx-auto w-full px-4 pt-2 flex items-center justify-between">
+        <button
+          onClick={() => window.location.replace('/player')}
+          className="px-3 py-1 bg-neutral-900 border border-neutral-700 hover:border-neutral-500 rounded text-xs font-mono transition text-neutral-300"
+        >
+          ← Return to Player Terminal
+        </button>
+        {awardNotice && (
+          <div className="bg-emerald-950 border border-emerald-500 text-emerald-200 px-3 py-1 rounded text-xs font-mono font-bold animate-pulse">
+            {awardNotice}
+          </div>
+        )}
+      </div>
 
       <main className="flex-1 flex flex-col items-center justify-center px-4 py-8 max-w-5xl mx-auto w-full">
         <div className="w-full">

@@ -4,8 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#050813">
-<title>Among Us: Coded Chaos | TechIdeate'26</title>
 <link href="https://fonts.googleapis.com/css2?family=Titan+One&family=Michroma&family=Chakra+Petch:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<script>
+  if (window.location.pathname.endsWith('login.html')) {
+    window.location.replace('/');
+  }
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
 :root{color-scheme:dark;--void:#03050c;--line:#232f55;--text:#f1ebe0;--mute:#9aa3bd;--blue:#6fb4e8;--red:#d8343f;--ice:#a9d8f5;--ok:#4fb3a2;--bad:#ff8a8a}
@@ -129,7 +133,7 @@ input[aria-invalid=true]{border-color:var(--bad)}
     <div class="frame" id="frame"><div class="in">
       <form id="f" novalidate>
         <div class="inp"><label class="sr" for="teamId">Team ID</label><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/><circle cx="18" cy="17" r="3"/></svg><input type="text" id="teamId" maxlength="40" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="next" placeholder="Team ID" aria-describedby="err"></div>
-        <div class="inp"><label class="sr" for="playerName">Player name</label><svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6"/><circle cx="17.5" cy="9" r="2.4"/><path d="M17 14.2c2.4.2 4 2.2 4 4.8"/></svg><input type="text" id="playerName" maxlength="60" autocomplete="name" autocapitalize="words" enterkeyhint="go" placeholder="Player Name" aria-describedby="err"></div>
+        <div class="inp"><label class="sr" for="leaderPhone">Leader Mobile Number</label><svg class="ic" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg><input type="tel" id="leaderPhone" maxlength="20" autocomplete="tel" enterkeyhint="go" placeholder="Leader Mobile (10 digits)" aria-describedby="err"></div>
         <div class="err" id="err" role="alert" aria-live="polite"></div>
         <div class="enterw"><button class="enter" type="submit"><span>ENTER <svg class="ic" viewBox="0 0 24 24"><path d="M4 12h15M13 6l6 6-6 6"/></svg></span></button></div>
       </form>
@@ -212,52 +216,135 @@ try{scene3d=init3d()}catch(e){scene3d=null}
 const warpTo3=v=>{if(scene3d&&!RM)scene3d.S.warpT=v};
 
 /* ===== cover: swipe up ===== */
+/* Check existing session and auto-redirect to player.html */
+try {
+  const existing = localStorage.getItem('nexus_player_session');
+  if (existing) {
+    const p = JSON.parse(existing);
+    if (p?.teamId) {
+      window.location.replace('player.html');
+    }
+  }
+} catch (e) {}
+
+/* ===== cover: swipe up & scroll transition ===== */
 const cover=$('#cover'),login=$('#login');let sy=null,prog=0,opened=false,moved=false;
 function setP(p){prog=Math.max(0,Math.min(1,p));cover.style.setProperty('--p',prog);login.style.setProperty('--lo',prog);warpTo3(prog*.8)}
 cover.onpointerdown=e=>{if(opened||e.target.closest('#hint'))return;sy=e.clientY;moved=false;cover.classList.remove('rel');cover.setPointerCapture(e.pointerId);login.classList.add('on');cover.style.cursor='grabbing'};
 cover.onpointermove=e=>{if(sy==null)return;moved=true;setP((sy-e.clientY)/(innerHeight*.5))};
-cover.onpointerup=cover.onpointercancel=()=>{if(sy==null)return;sy=null;cover.style.cursor='';cover.classList.add('rel');if(prog>.25)openLogin();else{setP(0);login.classList.remove('on')}};
+cover.onpointerup=cover.onpointercancel=()=>{if(sy==null)return;sy=null;cover.style.cursor='';cover.classList.add('rel');if(prog>.2)openLogin();else{setP(0);login.classList.remove('on')}};
 function openLogin(){if(opened)return;opened=true;navigator.vibrate&&navigator.vibrate(30);mode='login';login.classList.add('on');cover.classList.add('rel');setP(1);warpTo3(1);setTimeout(()=>warpTo3(0),650);setTimeout(()=>{cover.classList.add('gone');$('#teamId').focus({preventScroll:true})},850)}
 function backToCover(){opened=false;mode='cover';cover.classList.remove('gone');void cover.offsetWidth;cover.classList.add('rel');setP(0);setTimeout(()=>{if(!opened)login.classList.remove('on')},800)}
 $('#hint').onclick=openLogin;$('#back').onclick=backToCover;
-addEventListener('wheel',e=>{if(!opened&&mode==='cover'&&e.deltaY>20)openLogin();else if(opened&&mode==='login'&&scrollY===0&&e.deltaY<-40)backToCover()},{passive:true});
-addEventListener('keydown',e=>{if(!opened&&mode==='cover'&&['ArrowUp','ArrowDown','Enter',' '].includes(e.key)){e.preventDefault();openLogin()}});
-if(!RM&&matchMedia('(hover:hover)').matches)addEventListener('pointermove',e=>{const t=$('#title');t.style.setProperty('--ty',((e.clientX/innerWidth-.5)*16)+'deg');t.style.setProperty('--tx',(-(e.clientY/innerHeight-.5)*12)+'deg')});
+addEventListener('wheel',e=>{if(!opened&&mode==='cover'&&e.deltaY>15)openLogin();else if(opened&&mode==='login'&&scrollY===0&&e.deltaY<-30)backToCover()},{passive:true});
+addEventListener('keydown',e=>{if(!opened&&mode==='cover'&&['ArrowUp','ArrowDown','Enter',' '].includes(e.key)){e.preventDefault();openLogin()}else if(opened&&mode==='login'&&e.key==='Escape'){backToCover()}});
+if(!RM&&matchMedia('(hover:hover)').matches)addEventListener('pointermove',e=>{const t=$('#title');if(t){t.style.setProperty('--ty',((e.clientX/innerWidth-.5)*16)+'deg');t.style.setProperty('--tx',(-(e.clientY/innerHeight-.5)*12)+'deg')}});
 
 /* ===== login ===== */
 const fr=$('#frame');
 if(!RM&&matchMedia('(hover:hover)').matches){fr.onpointermove=e=>{const b=fr.getBoundingClientRect(),x=(e.clientX-b.left)/b.width-.5,y=(e.clientY-b.top)/b.height-.5;fr.style.transform=`perspective(1000px) rotateY(${x*6}deg) rotateX(${-y*6}deg)`};fr.onpointerleave=()=>fr.style.transform=''}
 $('#teamId').oninput=e=>e.target.removeAttribute('aria-invalid');
-$('#playerName').oninput=e=>e.target.removeAttribute('aria-invalid');
-function fail(msg,el){$('#err').textContent=msg;el.setAttribute('aria-invalid','true');el.focus();fr.classList.remove('shake');void fr.offsetWidth;fr.classList.add('shake')}
+const phoneInput = $('#leaderPhone') || $('#playerName');
+if(phoneInput) phoneInput.oninput=e=>e.target.removeAttribute('aria-invalid');
+function fail(msg,el){$('#err').textContent=msg;if(el){el.setAttribute('aria-invalid','true');el.focus();}fr.classList.remove('shake');void fr.offsetWidth;fr.classList.add('shake')}
 async function warpTo(steps,done){const w=$('#warp'),fl=$('#flash');w.classList.add('on');$('#pbi').style.width='0';warpTo3(1);await wait(RM?0:500);
  for(const [i,s] of steps.entries()){$('#stx').textContent=s;$('#pbi').style.width=((i+1)/steps.length*100)+'%';await wait(RM?80:650)}
  fl.style.opacity=1;await wait(RM?0:350);done();warpTo3(0);scrollTo(0,0);w.classList.remove('on');fl.style.opacity=0}
 $('#f').onsubmit=async e=>{
  e.preventDefault();
  const teamId=$('#teamId').value.trim().toUpperCase();
- const playerName=$('#playerName').value.trim().replace(/\s+/g,' ');
- if(!/^[A-Z0-9][A-Z0-9-]{1,39}$/.test(teamId))return fail('Enter the Team ID shown on your event pass.',$('#teamId'));
- if(playerName.length<2||playerName.length>60||/[\u0000-\u001f\u007f]/u.test(playerName))return fail('Enter a player name between 2 and 60 characters.',$('#playerName'));
+ const pInput=$('#leaderPhone') || $('#playerName');
+ const leaderPhone=pInput.value.trim();
+ const phoneDigits=leaderPhone.replace(/\D/g,'');
+ if(!/^[A-Z0-9][A-Z0-9-]{1,39}$/.test(teamId))return fail('Enter the Team ID shown on your event pass (e.g. NX-T1).', $('#teamId'));
+ if(phoneDigits.length<7 && leaderPhone.length<2)return fail('Enter the mobile number of your Team Leader.', pInput);
  $('#err').textContent='';
  const submit=$('#f button[type="submit"]');
  submit.disabled=true;
  submit.setAttribute('aria-busy','true');
+ const animation=warpTo(['Verifying Team ID…','Validating Leader Contact…','Synchronizing event session…'],()=>{});
+
  try{
-  const request=fetch(`${API_BASE}/teams/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({teamId,playerName})})
-   .then(async response=>{const result=await response.json().catch(()=>null);if(!response.ok||!result?.success)throw new Error(result?.message||'Sign-in failed. Please try again.');return result.data});
-  const animation=warpTo(['Verifying Team ID…','Checking player roster…','Synchronizing event session…'],()=>{});
-  let session;
-  try{session=await request}catch(error){await animation;throw error}
+  let session = null;
+
+  // 1. Try Backend
+  try {
+    const response = await fetch(`${API_BASE}/teams/login`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({teamId,phone:leaderPhone,mobileNumber:leaderPhone,playerName:leaderPhone})
+    });
+    const result = await response.json().catch(()=>null);
+    if(response.ok && result?.success && result?.data) {
+      const d = result.data;
+      session = {
+        teamId: d.team?.teamCode || teamId,
+        phone: d.player?.phone || leaderPhone,
+        playerName: d.player?.name || leaderPhone,
+        teamName: d.team?.name || 'Cyber Phantoms',
+        isImpostor: Boolean(d.team?.isImpostor),
+        assignedRoom: d.team?.assignedRoom || 'Room 1 (Command Hub)',
+        eventStatus: d.eventSession?.status || 'active'
+      };
+    }
+  } catch(netErr) {
+    console.warn('Backend login endpoint unavailable, attempting direct Supabase query:', netErr);
+  }
+
+  // 2. Direct Supabase REST Fallback
+  if(!session) {
+    try {
+      const sbUrl = `https://ezbselibyrmernjmhrnb.supabase.co/rest/v1/teams?or=(team_code.ilike.${encodeURIComponent(teamId)},badge_code.ilike.${encodeURIComponent(teamId)})&select=*`;
+      const sbRes = await fetch(sbUrl, {
+        headers: {
+          'apikey': 'sb_publishable_WTYbDTzRoSQ87gbS_ZVtEQ_16LYMQB7',
+          'Authorization': 'Bearer sb_publishable_WTYbDTzRoSQ87gbS_ZVtEQ_16LYMQB7'
+        }
+      });
+      if(sbRes.ok) {
+        const teams = await sbRes.json();
+        if(Array.isArray(teams) && teams.length > 0) {
+          const matched = teams.find(t => {
+            const dbPhone = String(t.phone || t.leader_phone || t.mobile_number || '').replace(/\D/g, '');
+            if (!phoneDigits) return true;
+            if (dbPhone && (dbPhone.includes(phoneDigits) || phoneDigits.includes(dbPhone) || dbPhone.slice(-7) === phoneDigits.slice(-7))) return true;
+            if (Array.isArray(t.members)) {
+              return t.members.some(m => {
+                const mDigits = String(m.phone || '').replace(/\D/g, '');
+                return mDigits && (mDigits.includes(phoneDigits) || phoneDigits.includes(mDigits));
+              });
+            }
+            return false;
+          }) || teams[0];
+
+          if(matched) {
+            session = {
+              teamId: matched.team_code || matched.badge_code || teamId,
+              phone: matched.phone || leaderPhone,
+              playerName: matched.impostor_player_name || matched.leader_name || 'Operative',
+              teamName: matched.name,
+              isImpostor: Boolean(matched.is_impostor),
+              assignedRoom: matched.assigned_room || matched.assigned_room_name || 'Room 1 (Command Hub)',
+              eventStatus: matched.status || 'active'
+            };
+          }
+        }
+      }
+    } catch(sbErr) {
+      console.error('Supabase direct query failed:', sbErr);
+    }
+  }
+
+  if(!session) {
+    throw new Error('Invalid Team ID or Leader Mobile Number. Please verify credentials.');
+  }
+
   await animation;
-  localStorage.setItem('nexus_player_session',JSON.stringify({
-   teamId:session.team.teamCode,
-   playerName:session.player.name
-  }));
+  localStorage.setItem('nexus_player_session', JSON.stringify(session));
   window.location.assign('player.html');
  }catch(error){
   const message=error instanceof Error?error.message:'Player sign-in failed. Please try again.';
-  fail(message,message.toLowerCase().includes('team id')?$('#teamId'):$('#playerName'));
+  fail(message,message.toLowerCase().includes('team id')?$('#teamId'):pInput);
  }finally{
   submit.disabled=false;
   submit.removeAttribute('aria-busy');

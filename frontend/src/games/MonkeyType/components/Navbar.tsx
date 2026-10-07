@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Theme } from '../types';
-import acmLogo from '../../../assets/acm_logo.png';
+import acmLogo from '../../../assets/logo.jpeg';
 
 interface NavbarProps {
   theme: Theme;

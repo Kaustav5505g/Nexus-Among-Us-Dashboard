@@ -47,21 +47,47 @@ const io = new SocketIOServer(server, {
   },
 });
 
-// Middleware with strict CORS origin verification
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (isOriginAllowed(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error('CORS request blocked: Unauthorized origin.'));
-      }
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    credentials: true,
-  })
-);
-app.use(express.json());
+import rateLimit from 'express-rate-limit';
+
+// Global API Rate Limiter: Allows fast valid requests while blocking spam/flooding attacks (DoS)
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 600, // Up to 600 requests per minute per IP (plenty for active multiplayer gameplay)
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'High traffic detected. Please slow down and try again shortly.',
+  },
+});
+
+// Strict Auth Limiter: Protects login against brute-force attacks and credential stuffing
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 40, // 40 attempts per minute per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many authentication attempts. Please wait 60 seconds before trying again.',
+  },
+});
+
+// Security Headers & Payload Hardening
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  next();
+});
+
+// Restrict maximum request body size to prevent memory-exhaustion / OOM crash attacks
+app.use(express.json({ limit: '100kb' }));
+
+// Apply rate limiters
+app.use('/api', apiLimiter);
+app.use('/api/teams/login', authLimiter);
+app.use('/api/admin', authLimiter);
 
 // Healthcheck
 app.get('/api/health', (req, res) => {

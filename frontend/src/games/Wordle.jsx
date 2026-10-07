@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Trophy } from 'lucide-react';
-import '../main.css';
+import { AllocationDatabase } from '../lib/gameDatabase';
+import '../index.css';
 
 
 const WORDS = ['ABORT', 'SPEAR', 'YIELD', 'SPEED', 'ROACH', 'MEDIA', 'RHYME', 'QUAKE', 'GLORY', 'EXERT', 'STIFF', 'CHEER', 'FIERY', 'STOIC', 'WHINE', 'TROOP', 'QUEUE', 'LEVER', 'BRAVE', 'ALERT', 'HOVER', 'PIECE', 'TROUT', 'WHISK', 'VAULT', 'YOUTH', 'ROGUE', 'LOGIC', 'INEPT', 'HEIST'];
@@ -9,7 +10,7 @@ const MAX_ATTEMPTS = 6;
 
 const TOTAL_ROUNDS = 2;
 
-export default function WordleClone({ onUnlock }) {
+export default function WordleClone({ onUnlock = () => {} }) {
 
   // Local Game State
   const [targetWord, setTargetWord] = useState('');
@@ -23,6 +24,7 @@ export default function WordleClone({ onUnlock }) {
   const [localWins, setLocalWins] = useState(0); // Track wins in this session
   const [currentRound, setCurrentRound] = useState(1); // Track which round we're on
   const [gameFinished, setGameFinished] = useState(false); // Track if all rounds completed
+  const [awardNotice, setAwardNotice] = useState('');
 
   // UI State for modals
   const [showUnlockModal, setShowUnlockModal] = useState(null);
@@ -39,6 +41,26 @@ export default function WordleClone({ onUnlock }) {
   const handleWin = () => {
     const newLocalWins = localWins + 1;
     setLocalWins(newLocalWins);
+
+    try {
+      const sessionRaw = localStorage.getItem('nexus_player_session');
+      if (sessionRaw) {
+        const session = JSON.parse(sessionRaw);
+        if (session?.teamId) {
+          const res = AllocationDatabase.recordGameCompletion(
+            session.teamId,
+            'wordle',
+            'Wordle Decoder',
+            guesses.length + 1
+          );
+          if (res.success) {
+            setAwardNotice(`✅ MISSION ACCOMPLISHED! Wordle station verified for Team ${session.teamName || session.teamId}. Logged to central control.`);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Score tracking notice:', e);
+    }
 
     if (newLocalWins >= TOTAL_ROUNDS) {
       setGameFinished(true);
@@ -161,9 +183,24 @@ export default function WordleClone({ onUnlock }) {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col">
-      <header className="border-b border-gray-700 p-4 text-center">
-        <h1 className="text-4xl font-bold">Wordle</h1>
+      <header className="border-b border-gray-700 p-4 flex items-center justify-between max-w-6xl mx-auto w-full">
+        <button
+          onClick={() => window.location.replace('/player')}
+          className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 rounded text-xs font-mono transition"
+        >
+          ← Return to Player Terminal
+        </button>
+        <h1 className="text-2xl font-bold tracking-wider">Wordle Terminal</h1>
+        <div className="text-xs font-mono text-emerald-400">
+          Nexus Station Mission
+        </div>
       </header>
+
+      {awardNotice && (
+        <div className="bg-emerald-950 border-b border-emerald-500 text-emerald-200 px-4 py-2 text-center text-sm font-mono font-bold animate-pulse">
+          {awardNotice}
+        </div>
+      )}
 
       {/* Unlock Modal */}
       {showUnlockModal && (

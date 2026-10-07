@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './Emoji.css';
 import { Trophy } from 'lucide-react';
+import { AllocationDatabase } from '../../lib/gameDatabase';
 
 // --- THE BIG POOL OF MOVIES ---
 const MOVIE_POOL = [
@@ -51,7 +52,7 @@ const shuffleArray = (array) => {
   return shuffled;
 };
 
-export default function MovieEmoji({ onUnlock }) {
+export default function MovieEmoji({ onUnlock = () => {} }) {
   const [gameMovies, setGameMovies] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
@@ -61,6 +62,7 @@ export default function MovieEmoji({ onUnlock }) {
   const [showIntro, setShowIntro] = useState(true);
   const [showUnlockModal, setShowUnlockModal] = useState(null);
   const [localWins, setLocalWins] = useState(0);
+  const [awardNotice, setAwardNotice] = useState('');
 
   const inputRef = useRef(null);
 
@@ -119,6 +121,25 @@ export default function MovieEmoji({ onUnlock }) {
       }
     } else {
       setGameStatus('finished');
+      try {
+        const sessionRaw = localStorage.getItem('nexus_player_session');
+        if (sessionRaw) {
+          const session = JSON.parse(sessionRaw);
+          if (session?.teamId) {
+            const res = AllocationDatabase.recordGameCompletion(
+              session.teamId,
+              'emoji',
+              'Emoji Decoder',
+              score
+            );
+            if (res.success) {
+              setAwardNotice(`✅ MISSION ACCOMPLISHED! Emoji clues decoded for Team ${session.teamName || session.teamId}. Logged to central control.`);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Emoji score record notice:', err);
+      }
     }
   };
 
@@ -189,9 +210,17 @@ export default function MovieEmoji({ onUnlock }) {
           <div className="game-card">
             <h1>Game Complete!</h1>
             <div className="emoji-stage">🏆</div>
-            <h2>Finished!</h2>
+            <h2>Station Clue Decoded!</h2>
+            {awardNotice && (
+              <div style={{ background: '#064e3b', border: '1px solid #10b981', color: '#a7f3d0', padding: '8px 12px', borderRadius: '4px', fontSize: '0.85rem', fontWeight: 'bold', margin: '10px 0' }}>
+                {awardNotice}
+              </div>
+            )}
             <p style={{ fontSize: '0.9rem', opacity: 0.7, marginTop: '8px' }}>{score / 10} / {gameMovies.length} correct</p>
-            <button className="game-btn btn-submit" onClick={() => { setCurrentIndex(0); setScore(0); setUserInput(''); setGameStatus('playing'); setLocalWins(0); setShowIntro(true); setGameMovies(shuffleArray(MOVIE_POOL).slice(0, TOTAL_QUESTIONS)); }}>Play Again</button>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '12px' }}>
+              <button className="game-btn btn-submit" onClick={() => { setCurrentIndex(0); setScore(0); setUserInput(''); setGameStatus('playing'); setLocalWins(0); setShowIntro(true); setGameMovies(shuffleArray(MOVIE_POOL).slice(0, TOTAL_QUESTIONS)); }}>Play Again</button>
+              <button className="game-btn" style={{ background: '#1e293b', color: '#fff' }} onClick={() => window.location.replace('/player')}>← Back to Player Terminal</button>
+            </div>
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { THEMES } from '../constants.tsx';
+import { THEMES } from '../constants';
 import { Theme } from '../types';
 
 interface ThemeSelectorProps {

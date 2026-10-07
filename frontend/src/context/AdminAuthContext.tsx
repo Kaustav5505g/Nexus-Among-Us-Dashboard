@@ -83,57 +83,72 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [user]);
 
+  // Synchronize staff and database from Supabase on provider initialization
+  useEffect(() => {
+    AllocationDatabase.syncAllFromSupabase().catch(() => {});
+  }, []);
+
   const login = async (credentialId: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    const cleanId = credentialId.trim().toLowerCase();
-    const cleanPass = password.trim();
+    const rawId = credentialId.trim();
+    const cleanId = rawId.toLowerCase();
+    const rawPass = password.trim();
 
     if (!cleanId) {
       return { success: false, error: 'Facilitator ID is required.' };
     }
-    if (!cleanPass) {
+    if (!rawPass) {
       return { success: false, error: 'Security passcode is required.' };
     }
 
-    // 1. Check Supabase admin_users table (Database First)
+    // 1. Check Supabase admin_users table (Primary source of truth)
     try {
-      const { data } = await supabase
-        .from('admin_users')
-        .select('*')
-        .or(`facilitator_id.ilike.${cleanId},username.ilike.${cleanId},email.ilike.${cleanId}`)
-        .maybeSingle();
+      if (supabase) {
+        const { data: records, error } = await supabase
+          .from('admin_users')
+          .select('*')
+          .or(`facilitator_id.ilike.${cleanId},username.ilike.${cleanId},email.ilike.${cleanId}`);
 
-      if (data) {
-        // Direct password match against database record
-        const passwordMatches = data.password === cleanPass ||
-          (cleanPass === 'master2026' && data.role === 'super_admin') ||
-          (cleanPass === 'admin2026' && data.role === 'admin') ||
-          (cleanPass === 'poc2026' && data.role === 'moderator');
+        if (error) {
+          console.warn('Supabase admin_users query warning:', error);
+        }
 
-        if (passwordMatches) {
-          const authUser: AdminUser = {
-            id: data.id || `usr-${Date.now()}`,
-            facilitatorId: data.facilitator_id || data.username,
-            username: data.username,
-            name: data.name,
-            email: data.email,
-            role: data.role as AdminRole,
-            pocRoom: data.poc_room,
-            title: data.title,
-          };
-          setUser(authUser);
-          return { success: true };
-        } else {
-          return {
-            success: false,
-            error: 'Authentication failed: Invalid security passcode.',
-          };
+        if (records && records.length > 0) {
+          const userRecord = records[0];
+          const storedPass = (userRecord.password || '').trim();
+
+          const passwordMatches =
+            storedPass === rawPass ||
+            storedPass === password ||
+            (rawPass === 'master2026' && userRecord.role === 'super_admin') ||
+            (rawPass === 'admin2026' && userRecord.role === 'admin') ||
+            (rawPass === 'poc2026' && userRecord.role === 'moderator');
+
+          if (passwordMatches) {
+            const authUser: AdminUser = {
+              id: userRecord.id || `usr-${Date.now()}`,
+              facilitatorId: userRecord.facilitator_id || userRecord.username,
+              username: userRecord.username,
+              name: userRecord.name,
+              email: userRecord.email,
+              role: userRecord.role as AdminRole,
+              pocRoom: userRecord.poc_room,
+              title: userRecord.title,
+            };
+            setUser(authUser);
+            return { success: true };
+          } else {
+            return {
+              success: false,
+              error: 'Authentication failed: Invalid security passcode.',
+            };
+          }
         }
       }
     } catch (e) {
-      // Fallback to local database registry
+      console.warn('Supabase auth network/query error, checking local fallback:', e);
     }
 
-    // 2. Check Staff Users from Local Central Registry
+    // 2. Check Staff Users from Local Central Registry (fallback if offline or newly added)
     try {
       const staffList = AllocationDatabase.getStaffUsers();
       const staffMatch = staffList.find(
@@ -149,11 +164,13 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       );
 
       if (staffMatch) {
+        const storedPass = (staffMatch.password || '').trim();
         const isPasswordCorrect =
-          staffMatch.password === cleanPass ||
-          (cleanPass === 'master2026' && staffMatch.role === 'super_admin') ||
-          (cleanPass === 'admin2026' && staffMatch.role === 'admin') ||
-          (cleanPass === 'poc2026' && staffMatch.role === 'moderator');
+          storedPass === rawPass ||
+          storedPass === password ||
+          (rawPass === 'master2026' && staffMatch.role === 'super_admin') ||
+          (rawPass === 'admin2026' && staffMatch.role === 'admin') ||
+          (rawPass === 'poc2026' && staffMatch.role === 'moderator');
 
         if (isPasswordCorrect) {
           const authUser: AdminUser = {
@@ -176,10 +193,10 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
       }
     } catch (e) {
-      // Continue to predefined credentials
+      console.warn('Local staff check error:', e);
     }
 
-    // 3. Check Official Predefined Admin Registry
+    // 3. Check Official Predefined Admin Registry (Emergency Offline Fallback)
     const match = OFFICIAL_ADMIN_CREDENTIALS.find(
       cred =>
         cred.id.toLowerCase() === cleanId ||
@@ -187,31 +204,30 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         cred.aliases.includes(cleanId)
     );
 
-    if (!match) {
-      return {
-        success: false,
-        error: `Unrecognized Facilitator ID '${credentialId}'. Verify your official clearance code.`,
-      };
+    if (match) {
+      if (match.password === rawPass) {
+        const authenticatedUser: AdminUser = {
+          id: match.id,
+          username: match.username,
+          name: match.name,
+          email: match.email,
+          role: match.role,
+          pocRoom: match.pocRoom,
+        };
+        setUser(authenticatedUser);
+        return { success: true };
+      } else {
+        return {
+          success: false,
+          error: 'Authentication failed: Invalid security passcode.',
+        };
+      }
     }
 
-    if (match.password !== cleanPass) {
-      return {
-        success: false,
-        error: 'Authentication failed: Invalid security passcode.',
-      };
-    }
-
-    const authenticatedUser: AdminUser = {
-      id: match.id,
-      username: match.username,
-      name: match.name,
-      email: match.email,
-      role: match.role,
-      pocRoom: match.pocRoom,
+    return {
+      success: false,
+      error: `Unrecognized Facilitator ID '${credentialId}'. Verify your official clearance code.`,
     };
-
-    setUser(authenticatedUser);
-    return { success: true };
   };
 
   const logout = () => {

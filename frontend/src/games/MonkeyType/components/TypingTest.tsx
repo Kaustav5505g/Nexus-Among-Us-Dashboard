@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Theme, TestResult } from '../types';
-import { COMMON_WORDS } from '../constants.tsx';
+import { COMMON_WORDS } from '../constants';
 
 interface TypingTestProps {
   theme: Theme;

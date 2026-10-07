@@ -14,6 +14,7 @@ import {
   RefreshCw,
   LogOut,
   Layers,
+  Menu,
   Sparkles,
   AlertCircle,
   X,
@@ -32,9 +33,13 @@ import {
   ArrowUpRight,
   Sliders,
   Wrench,
+  Gamepad2,
+  Trophy,
+  Award,
+  TrendingUp,
 } from 'lucide-react';
 import { useAdminAuth } from '../context/AdminAuthContext';
-import { Team, RoomRecord, PlayerMember, AdminUser, AdminRole, ActivityLogItem, ImpostorPowerPort } from '../types';
+import { Team, RoomRecord, PlayerMember, AdminUser, AdminRole, ActivityLogItem, ImpostorPowerPort, GamePointsConfig, GamePlayedRecord } from '../types';
 import { AllocationDatabase } from '../lib/gameDatabase';
 import { isRootMasterAccount, isCurrentAdityaUser } from '../utils/permissions';
 
@@ -57,12 +62,23 @@ export default function AmongUsAdmin() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [staffUsers, setStaffUsers] = useState<AdminUser[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLogItem[]>([]);
-  const [activeTab, setActiveTab] = useState<'allocation' | 'teams' | 'rooms' | 'powers' | 'users' | 'logs'>('allocation');
+  const [activeTab, setActiveTab] = useState<'allocation' | 'teams' | 'rooms' | 'powers' | 'games' | 'users' | 'logs'>('allocation');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [logSearchQuery, setLogSearchQuery] = useState('');
   const [logFilter, setLogFilter] = useState<'all' | 'power' | 'impostor_assign' | 'sabotage' | 'login' | 'system'>('all');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // -------------------------------------------------------------
+  // GAME POINTS & LEADERBOARD STATE
+  // -------------------------------------------------------------
+  const [gamePointsConfig, setGamePointsConfig] = useState<GamePointsConfig>(() => AllocationDatabase.getGamePointsConfig());
+  const [pointsForm, setPointsForm] = useState<GamePointsConfig>(() => AllocationDatabase.getGamePointsConfig());
+  const [selectedTeamGames, setSelectedTeamGames] = useState<Team | null>(null);
+  const [adjustPointsTeam, setAdjustPointsTeam] = useState<Team | null>(null);
+  const [adjustPointsDelta, setAdjustPointsDelta] = useState<number>(10);
+  const [adjustPointsReason, setAdjustPointsReason] = useState<string>('Bonus Challenge Reward');
 
   // -------------------------------------------------------------
   // POWERS LIBRARY DASHBOARD & POWERSET MANAGEMENT STATE
@@ -109,10 +125,14 @@ export default function AmongUsAdmin() {
     pocContact: '',
   });
 
-  // Team Modal (Add)
+  // Team Modal (Add / Edit)
   const [teamModalOpen, setTeamModalOpen] = useState(false);
+  const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
   const [teamForm, setTeamForm] = useState({
     name: '',
+    teamCode: '',
+    leaderName: '',
+    phone: '',
     playerNames: '',
     assignedRoomId: '',
   });
@@ -167,12 +187,33 @@ export default function AmongUsAdmin() {
       }
     }).catch(() => {});
 
-    // Auto-poll logs so live player actions & power activations display immediately
+    // Auto-poll logs and teams so live player actions & power activations display immediately
     const pollLogs = setInterval(() => {
       setActivityLogs(AllocationDatabase.getLogs());
+      setTeams(AllocationDatabase.getTeams());
     }, 3000);
     return () => clearInterval(pollLogs);
   }, []);
+
+  // -------------------------------------------------------------
+  // GAME POINTS & LEADERBOARD HANDLERS
+  // -------------------------------------------------------------
+  const handleSaveGamePoints = (e: React.FormEvent) => {
+    e.preventDefault();
+    AllocationDatabase.saveGamePointsConfig(pointsForm);
+    setGamePointsConfig(pointsForm);
+    notify('Station game points configuration updated successfully!');
+  };
+
+  const handleApplyPointsAdjustment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adjustPointsTeam) return;
+    const res = AllocationDatabase.adjustTeamScore(adjustPointsTeam.id, adjustPointsDelta, adjustPointsReason);
+    setTeams(AllocationDatabase.getTeams());
+    setActivityLogs(AllocationDatabase.getLogs());
+    notify(`Updated points for ${adjustPointsTeam.name}! New score: ${res.newScore} PTS`);
+    setAdjustPointsTeam(null);
+  };
 
   // -------------------------------------------------------------
   // IMPOSTOR SELECTION HANDLERS
@@ -524,10 +565,30 @@ export default function AmongUsAdmin() {
   // TEAM CRUD
   // -------------------------------------------------------------
   const openAddTeam = () => {
+    setEditingTeamId(null);
     setTeamForm({
       name: `Team ${teams.length + 1}`,
+      teamCode: `NX-T${teams.length + 1}`,
+      leaderName: '',
+      phone: '',
       playerNames: '',
       assignedRoomId: '',
+    });
+    setTeamModalOpen(true);
+  };
+
+  const openEditTeam = (team: Team) => {
+    setEditingTeamId(team.id);
+    const names = (team.memberDetails || [])
+      .map(m => m.name)
+      .join('\n');
+    setTeamForm({
+      name: team.name,
+      teamCode: team.teamCode || team.badgeCode || team.id,
+      leaderName: team.leaderName || '',
+      phone: team.phone || '',
+      playerNames: names,
+      assignedRoomId: team.assignedRoomId || '',
     });
     setTeamModalOpen(true);
   };
@@ -541,17 +602,62 @@ export default function AmongUsAdmin() {
       .map(n => n.trim())
       .filter(Boolean);
 
-    const created = AllocationDatabase.createTeam({
-      name: teamForm.name.trim(),
-      memberNames: names,
-    });
+    const cleanTeamCode = teamForm.teamCode.trim().toUpperCase() || undefined;
+    const cleanLeaderName = teamForm.leaderName.trim() || undefined;
+    const cleanPhone = teamForm.phone.trim() || undefined;
 
-    if (teamForm.assignedRoomId) {
-      AllocationDatabase.allocateTeamToRoom(created.id, teamForm.assignedRoomId);
+    if (editingTeamId) {
+      // Edit existing team
+      const existingTeam = teams.find(t => t.id === editingTeamId);
+      const existingMembers = existingTeam?.memberDetails || [];
+
+      // Preserve member IDs if names match, otherwise create new
+      const updatedMembers: PlayerMember[] = names.map(name => {
+        const found = existingMembers.find(m => m.name.toLowerCase() === name.toLowerCase());
+        if (found) return found;
+        return {
+          id: `player_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          name,
+        };
+      });
+
+      AllocationDatabase.updateTeam(editingTeamId, {
+        name: teamForm.name.trim(),
+        teamCode: cleanTeamCode,
+        badgeCode: cleanTeamCode,
+        leaderName: cleanLeaderName,
+        phone: cleanPhone,
+        members: names,
+        memberDetails: updatedMembers,
+      });
+
+      if (teamForm.assignedRoomId) {
+        AllocationDatabase.allocateTeamToRoom(editingTeamId, teamForm.assignedRoomId);
+      } else if (existingTeam?.assignedRoomId) {
+        AllocationDatabase.allocateTeamToRoom(editingTeamId, null);
+      }
+
+      setTeams(AllocationDatabase.getTeams());
+      notify(`Updated ${teamForm.name.trim()}`);
+    } else {
+      // Add new team
+      const created = AllocationDatabase.createTeam({
+        name: teamForm.name.trim(),
+        teamCode: cleanTeamCode,
+        badgeCode: cleanTeamCode,
+        leaderName: cleanLeaderName,
+        phone: cleanPhone,
+        memberNames: names,
+      });
+
+      if (teamForm.assignedRoomId) {
+        AllocationDatabase.allocateTeamToRoom(created.id, teamForm.assignedRoomId);
+      }
+
+      setTeams(AllocationDatabase.getTeams());
+      notify(`Added ${created.name} (${names.length} players)`);
     }
 
-    setTeams(AllocationDatabase.getTeams());
-    notify(`Added ${created.name} (${names.length} players)`);
     setTeamModalOpen(false);
   };
 
@@ -873,10 +979,15 @@ export default function AmongUsAdmin() {
 
   const filteredTeams = useMemo(() => {
     return teams.filter(t => {
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
       return (
-        searchQuery === '' ||
-        t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (t.memberDetails && t.memberDetails.some(m => m.name.toLowerCase().includes(searchQuery.toLowerCase())))
+        t.name.toLowerCase().includes(q) ||
+        (t.teamCode && t.teamCode.toLowerCase().includes(q)) ||
+        (t.badgeCode && t.badgeCode.toLowerCase().includes(q)) ||
+        (t.leaderName && t.leaderName.toLowerCase().includes(q)) ||
+        (t.phone && t.phone.toLowerCase().includes(q)) ||
+        (t.memberDetails && t.memberDetails.some(m => m.name.toLowerCase().includes(q) || (m.phone && m.phone.includes(q))))
       );
     });
   }, [teams, searchQuery]);
@@ -998,153 +1109,284 @@ export default function AmongUsAdmin() {
         </div>
       )}
 
-      {/* Top Navbar */}
-      <header className="border-b border-neutral-200 bg-white sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <img
-              src="/logo.jpeg"
-              alt="NEXUS"
-              className="w-9 h-9 object-contain rounded-md border border-neutral-200"
-            />
-            <div>
-              <span className="font-bold text-sm block tracking-tight">
-                NEXUS AMONG US
-              </span>
-              <span className="text-xs text-neutral-500 block font-normal">
-                Team & Room Allocation
-              </span>
+      {/* Layout Wrapper with Responsive Sidebar */}
+      <div className="flex min-h-screen">
+        {/* Mobile Backdrop */}
+        {sidebarOpen && (
+          <div
+            onClick={() => setSidebarOpen(false)}
+            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          />
+        )}
+
+        {/* Left Sidebar */}
+        <aside
+          className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-neutral-900 text-white flex flex-col transition-transform duration-200 ease-in-out border-r border-neutral-800 ${
+            sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+          }`}
+        >
+          {/* Sidebar Header */}
+          <div className="h-16 px-5 border-b border-neutral-800 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <img
+                src="/logo.jpeg"
+                alt="NEXUS"
+                className="w-8 h-8 object-contain rounded-md border border-neutral-700 bg-black"
+              />
+              <div>
+                <span className="font-bold text-sm block tracking-tight leading-none text-white">
+                  NEXUS AMONG US
+                </span>
+                <span className="text-[10px] text-neutral-400 block font-normal tracking-wide mt-1">
+                  Management Console
+                </span>
+              </div>
             </div>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden p-1.5 text-neutral-400 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
 
-          <div className="flex items-center gap-2.5 text-xs">
-            <span className="hidden sm:inline text-neutral-500 font-medium">
-              {user?.name}
-            </span>
+          {/* Module Links */}
+          <div className="px-4 pt-4 pb-1.5 text-[10px] font-semibold text-neutral-400 uppercase tracking-wider">
+            Navigation Modules
+          </div>
+          <nav className="flex-1 px-3 space-y-1.5 overflow-y-auto">
+            <button
+              onClick={() => { setActiveTab('allocation'); setSidebarOpen(false); }}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-xs font-semibold transition ${
+                activeTab === 'allocation'
+                  ? 'bg-white text-black shadow-sm'
+                  : 'text-neutral-300 hover:bg-neutral-800 hover:text-white'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Layers className="w-4 h-4" />
+                <span>1. Room Allocation</span>
+              </div>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${activeTab === 'allocation' ? 'bg-neutral-200 text-black' : 'bg-neutral-800 text-neutral-400'}`}>
+                {rooms.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => { setActiveTab('teams'); setSidebarOpen(false); }}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-xs font-semibold transition ${
+                activeTab === 'teams'
+                  ? 'bg-white text-black shadow-sm'
+                  : 'text-neutral-300 hover:bg-neutral-800 hover:text-white'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Users className="w-4 h-4" />
+                <span>2. Teams & Players</span>
+              </div>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${activeTab === 'teams' ? 'bg-neutral-200 text-black' : 'bg-neutral-800 text-neutral-400'}`}>
+                {teams.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => { setActiveTab('rooms'); setSidebarOpen(false); }}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-xs font-semibold transition ${
+                activeTab === 'rooms'
+                  ? 'bg-white text-black shadow-sm'
+                  : 'text-neutral-300 hover:bg-neutral-800 hover:text-white'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Building className="w-4 h-4" />
+                <span>3. Rooms & POCs</span>
+              </div>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${activeTab === 'rooms' ? 'bg-neutral-200 text-black' : 'bg-neutral-800 text-neutral-400'}`}>
+                {rooms.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => { setActiveTab('powers'); setSidebarOpen(false); }}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-xs font-semibold transition ${
+                activeTab === 'powers'
+                  ? 'bg-white text-black shadow-sm'
+                  : 'text-neutral-300 hover:bg-neutral-800 hover:text-white'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Zap className="w-4 h-4 text-amber-400" />
+                <span>4. Powers Arsenal</span>
+              </div>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${activeTab === 'powers' ? 'bg-neutral-200 text-black' : 'bg-neutral-800 text-neutral-400'}`}>
+                {powerLibrary.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => { setActiveTab('games'); setSidebarOpen(false); }}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-xs font-semibold transition ${
+                activeTab === 'games'
+                  ? 'bg-white text-black shadow-sm'
+                  : 'text-neutral-300 hover:bg-neutral-800 hover:text-white'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Gamepad2 className="w-4 h-4 text-emerald-400" />
+                <span>5. Game Points & Ranks</span>
+              </div>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${activeTab === 'games' ? 'bg-neutral-200 text-black' : 'bg-neutral-800 text-neutral-400'}`}>
+                Leaderboard
+              </span>
+            </button>
+
+            {user?.role === 'super_admin' && (
+              <button
+                onClick={() => { setActiveTab('users'); setSidebarOpen(false); }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-xs font-semibold transition ${
+                  activeTab === 'users'
+                    ? 'bg-white text-black shadow-sm'
+                    : 'text-neutral-300 hover:bg-neutral-800 hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Crown className="w-4 h-4 text-yellow-400" />
+                  <span>5. User Panel</span>
+                </div>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${activeTab === 'users' ? 'bg-neutral-200 text-black' : 'bg-neutral-800 text-neutral-400'}`}>
+                  {staffUsers.length}
+                </span>
+              </button>
+            )}
+
+            <button
+              onClick={() => { setActiveTab('logs'); setSidebarOpen(false); }}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-xs font-semibold transition ${
+                activeTab === 'logs'
+                  ? 'bg-white text-black shadow-sm'
+                  : 'text-neutral-300 hover:bg-neutral-800 hover:text-white'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <History className="w-4 h-4" />
+                <span>{user?.role === 'super_admin' ? '6' : '5'}. Activity Logs</span>
+              </div>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${activeTab === 'logs' ? 'bg-neutral-200 text-black' : 'bg-neutral-800 text-neutral-400'}`}>
+                {activityLogs.length}
+              </span>
+            </button>
+          </nav>
+
+          {/* Sidebar Footer */}
+          <div className="p-3 border-t border-neutral-800 space-y-2">
+            <div className="px-3 py-2 bg-neutral-800/60 rounded-lg flex items-center justify-between">
+              <div className="min-w-0 pr-2">
+                <span className="text-xs font-semibold text-white block truncate">{user?.name}</span>
+                <span className="text-[10px] text-neutral-400 capitalize block truncate">{user?.role?.replace('_', ' ')}</span>
+              </div>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
+            </div>
 
             <button
               onClick={handleExportCSV}
-              className="px-3 py-1.5 border border-neutral-300 hover:border-black rounded-md font-medium text-xs transition flex items-center gap-1.5"
+              className="w-full py-2 px-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-lg text-xs font-medium flex items-center justify-center gap-2 transition"
             >
               <Download className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Export CSV</span>
+              <span>Export CSV</span>
             </button>
 
             <button
               onClick={logout}
-              className="px-3 py-1.5 border border-neutral-300 hover:border-black rounded-md font-medium text-xs transition"
+              className="w-full py-2 px-3 border border-neutral-800 hover:border-red-800 hover:bg-red-950/40 text-neutral-400 hover:text-red-400 rounded-lg text-xs font-medium flex items-center justify-center gap-2 transition"
             >
-              Log Out
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Log Out</span>
             </button>
           </div>
-        </div>
-      </header>
+        </aside>
 
-      {/* Main Container */}
-      <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
-        {/* Simple Summary Metric Cards */}
-        <div className={`grid ${user?.role === 'super_admin' ? 'grid-cols-2 sm:grid-cols-6' : 'grid-cols-2 sm:grid-cols-5'} gap-3 text-center`}>
-          <div className="p-4 border border-neutral-200 rounded-lg bg-neutral-50">
-            <span className="text-xs text-neutral-500 uppercase font-medium block">Rooms</span>
-            <div className="text-2xl font-bold mt-0.5">{rooms.length}</div>
-          </div>
-          <div className="p-4 border border-neutral-200 rounded-lg bg-neutral-50">
-            <span className="text-xs text-neutral-500 uppercase font-medium block">Teams</span>
-            <div className="text-2xl font-bold mt-0.5">{teams.length}</div>
-          </div>
-          <div className="p-4 border border-neutral-200 rounded-lg bg-neutral-50">
-            <span className="text-xs text-neutral-500 uppercase font-medium block">Total Players</span>
-            <div className="text-2xl font-bold mt-0.5">{totalPlayersCount}</div>
-          </div>
-          <div className="p-4 border border-neutral-200 rounded-lg bg-neutral-50">
-            <span className="text-xs text-neutral-500 uppercase font-medium block">Impostors Active</span>
-            <div className="text-2xl font-bold mt-0.5">{impostorTeamsCount}</div>
-          </div>
-          <div className="p-4 border border-neutral-200 rounded-lg bg-neutral-50">
-            <span className="text-xs text-neutral-500 uppercase font-medium block">Powers Arsenal</span>
-            <div className="text-2xl font-bold mt-0.5">{powerLibrary.length}</div>
-          </div>
-          {user?.role === 'super_admin' && (
-            <div className="p-4 border border-neutral-200 rounded-lg bg-neutral-50">
-              <span className="text-xs text-neutral-500 uppercase font-medium block">Staff & Admins</span>
-              <div className="text-2xl font-bold mt-0.5">{staffUsers.length}</div>
+        {/* Main Content Area */}
+        <div className="lg:pl-64 flex-1 flex flex-col min-w-0">
+          {/* Top Header Bar */}
+          <header className="border-b border-neutral-200 bg-white sticky top-0 z-30 px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden p-2 -ml-2 text-neutral-700 hover:text-black rounded-lg hover:bg-neutral-100"
+                aria-label="Toggle Navigation"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+              <div>
+                <span className="font-bold text-sm sm:text-base block tracking-tight uppercase">
+                  {activeTab === 'allocation' && '1. Room Allocation Matrix'}
+                  {activeTab === 'teams' && '2. Teams & Rosters'}
+                  {activeTab === 'rooms' && '3. Event Rooms & POCs'}
+                  {activeTab === 'powers' && '4. Impostor Powers Arsenal'}
+                  {activeTab === 'games' && '5. Station Game Points & Live Leaderboard'}
+                  {activeTab === 'users' && '6. Admin User Panel'}
+                  {activeTab === 'logs' && '7. Audit & Activity Logs'}
+                </span>
+                <span className="text-xs text-neutral-500 hidden sm:block">
+                  Nexus Control Deck • Live real-time allocation
+                </span>
+              </div>
             </div>
-          )}
-        </div>
 
-        {/* Modern Segmented Tab Buttons */}
-        <div className="flex border border-neutral-300 rounded-lg p-1 bg-neutral-100 gap-1 text-xs sm:text-sm font-medium overflow-x-auto">
-          <button
-            onClick={() => setActiveTab('allocation')}
-            className={`flex-1 py-2 px-2 rounded-md transition whitespace-nowrap ${
-              activeTab === 'allocation'
-                ? 'bg-black text-white shadow-sm'
-                : 'text-neutral-700 hover:text-black'
-            }`}
-          >
-            1. Room Allocation
-          </button>
+            <div className="flex items-center gap-2.5 text-xs">
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full font-medium text-[11px]">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Live Sync Active
+              </span>
 
-          <button
-            onClick={() => setActiveTab('teams')}
-            className={`flex-1 py-2 px-2 rounded-md transition whitespace-nowrap ${
-              activeTab === 'teams'
-                ? 'bg-black text-white shadow-sm'
-                : 'text-neutral-700 hover:text-black'
-            }`}
-          >
-            2. Teams & Players ({teams.length})
-          </button>
+              <button
+                onClick={handleExportCSV}
+                className="lg:hidden px-2.5 py-1.5 border border-neutral-300 hover:border-black rounded-md font-medium text-xs transition flex items-center gap-1.5"
+                title="Export CSV"
+              >
+                <Download className="w-3.5 h-3.5" />
+              </button>
 
-          <button
-            onClick={() => setActiveTab('rooms')}
-            className={`flex-1 py-2 px-2 rounded-md transition whitespace-nowrap ${
-              activeTab === 'rooms'
-                ? 'bg-black text-white shadow-sm'
-                : 'text-neutral-700 hover:text-black'
-            }`}
-          >
-            3. Rooms & POCs ({rooms.length})
-          </button>
+              <button
+                onClick={logout}
+                className="lg:hidden px-2.5 py-1.5 border border-neutral-300 hover:border-black rounded-md font-medium text-xs transition"
+              >
+                Log Out
+              </button>
+            </div>
+          </header>
 
-          <button
-            onClick={() => setActiveTab('powers')}
-            className={`flex-1 py-2 px-2 rounded-md transition flex items-center justify-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'powers'
-                ? 'bg-black text-white shadow-sm'
-                : 'text-neutral-700 hover:text-black'
-            }`}
-          >
-            <Zap className="w-3.5 h-3.5" />
-            <span>4. Powers Arsenal ({powerLibrary.length})</span>
-          </button>
-
-          {user?.role === 'super_admin' && (
-            <button
-              onClick={() => setActiveTab('users')}
-              className={`flex-1 py-2 px-2 rounded-md transition flex items-center justify-center gap-1.5 whitespace-nowrap ${
-                activeTab === 'users'
-                  ? 'bg-black text-white shadow-sm'
-                  : 'text-neutral-700 hover:text-black'
-              }`}
-            >
-              <Crown className="w-3.5 h-3.5" />
-              <span>5. User Panel ({staffUsers.length})</span>
-            </button>
-          )}
-
-          <button
-            onClick={() => setActiveTab('logs')}
-            className={`flex-1 py-2 px-2 rounded-md transition flex items-center justify-center gap-1.5 whitespace-nowrap ${
-              activeTab === 'logs'
-                ? 'bg-black text-white shadow-sm'
-                : 'text-neutral-700 hover:text-black'
-            }`}
-          >
-            <History className="w-3.5 h-3.5" />
-            <span>{user?.role === 'super_admin' ? '6' : '5'}. Activity Logs ({activityLogs.length})</span>
-          </button>
-        </div>
+          {/* Main Dashboard Panel */}
+          <main className="p-4 sm:p-6 space-y-6 max-w-7xl w-full">
+            {/* Simple Summary Metric Cards */}
+            <div className={`grid ${user?.role === 'super_admin' ? 'grid-cols-2 sm:grid-cols-6' : 'grid-cols-2 sm:grid-cols-5'} gap-3 text-center`}>
+              <div className="p-4 border border-neutral-200 rounded-lg bg-neutral-50">
+                <span className="text-xs text-neutral-500 uppercase font-medium block">Rooms</span>
+                <div className="text-2xl font-bold mt-0.5">{rooms.length}</div>
+              </div>
+              <div className="p-4 border border-neutral-200 rounded-lg bg-neutral-50">
+                <span className="text-xs text-neutral-500 uppercase font-medium block">Teams</span>
+                <div className="text-2xl font-bold mt-0.5">{teams.length}</div>
+              </div>
+              <div className="p-4 border border-neutral-200 rounded-lg bg-neutral-50">
+                <span className="text-xs text-neutral-500 uppercase font-medium block">Total Players</span>
+                <div className="text-2xl font-bold mt-0.5">{totalPlayersCount}</div>
+              </div>
+              <div className="p-4 border border-neutral-200 rounded-lg bg-neutral-50">
+                <span className="text-xs text-neutral-500 uppercase font-medium block">Impostors Active</span>
+                <div className="text-2xl font-bold mt-0.5">{impostorTeamsCount}</div>
+              </div>
+              <div className="p-4 border border-neutral-200 rounded-lg bg-neutral-50">
+                <span className="text-xs text-neutral-500 uppercase font-medium block">Powers Arsenal</span>
+                <div className="text-2xl font-bold mt-0.5">{powerLibrary.length}</div>
+              </div>
+              {user?.role === 'super_admin' && (
+                <div className="p-4 border border-neutral-200 rounded-lg bg-neutral-50">
+                  <span className="text-xs text-neutral-500 uppercase font-medium block">Staff & Admins</span>
+                  <div className="text-2xl font-bold mt-0.5">{staffUsers.length}</div>
+                </div>
+              )}
+            </div>
 
         {/* ========================================================= */}
         {/* TAB 1: ROOM ALLOCATION */}
@@ -1601,8 +1843,20 @@ export default function AmongUsAdmin() {
                           {team.name}
                         </span>
                         <span className="px-2 py-0.5 bg-black text-white rounded text-[11px] font-mono font-bold tracking-wider" title="Player Login Team ID">
-                          ID: {team.teamCode || team.id}
+                          ID: {team.teamCode || team.badgeCode || team.id}
                         </span>
+                        {team.leaderName && (
+                          <span className="px-2 py-0.5 border border-neutral-300 rounded text-[11px] font-medium bg-neutral-100 flex items-center gap-1 text-neutral-800" title="Team Leader">
+                            <Crown className="w-3 h-3 text-neutral-600" />
+                            <span>Leader: {team.leaderName}</span>
+                          </span>
+                        )}
+                        {team.phone && (
+                          <span className="px-2 py-0.5 border border-neutral-300 rounded text-[11px] font-mono font-medium bg-neutral-50 flex items-center gap-1 text-neutral-700" title="Leader Mobile (for Player Login)">
+                            <Phone className="w-3 h-3 text-neutral-500" />
+                            <span>{team.phone}</span>
+                          </span>
+                        )}
                         {room ? (
                           <span className="px-2 py-0.5 border border-neutral-200 rounded text-[11px] font-medium bg-neutral-50">
                             {room.name} ({room.zone})
@@ -1612,13 +1866,23 @@ export default function AmongUsAdmin() {
                             Unassigned
                           </span>
                         )}
+
+                        <span className="px-2 py-0.5 border border-amber-300 rounded text-[11px] font-mono font-bold bg-amber-50 text-amber-800 flex items-center gap-1 shadow-xs" title="Total Score">
+                          <Trophy className="w-3 h-3 text-amber-600" />
+                          <span>{team.score || 0} PTS</span>
+                        </span>
+
+                        <span className="px-2 py-0.5 border border-blue-200 rounded text-[11px] font-mono font-medium bg-blue-50 text-blue-700 flex items-center gap-1" title="Games Completed">
+                          <Gamepad2 className="w-3 h-3 text-blue-600" />
+                          <span>{team.gamesPlayed?.length || 0} Games</span>
+                        </span>
                       </div>
 
-                      <div className="flex items-center gap-2 text-xs">
+                      <div className="flex items-center gap-2 text-xs flex-wrap">
                         <select
                           value={team.assignedRoomId || 'unassigned'}
                           onChange={e => handleAssignTeamToRoom(team.id, e.target.value)}
-                          className="border border-neutral-300 rounded px-2 py-1 text-xs outline-none bg-white"
+                          className="border border-neutral-300 rounded px-2 py-1 text-xs outline-none bg-white font-medium"
                         >
                           <option value="unassigned">No Room</option>
                           {rooms.map(r => (
@@ -1629,15 +1893,45 @@ export default function AmongUsAdmin() {
                         </select>
 
                         <button
+                          onClick={() => setSelectedTeamGames(team)}
+                          className="px-2.5 py-1 border border-neutral-300 hover:border-black rounded text-xs font-medium transition flex items-center gap-1 text-neutral-700 hover:text-black bg-white"
+                          title="View Game History & Breakdown"
+                        >
+                          <Gamepad2 className="w-3 h-3 text-emerald-600" />
+                          <span>Games ({team.gamesPlayed?.length || 0})</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setAdjustPointsTeam(team);
+                            setAdjustPointsDelta(10);
+                            setAdjustPointsReason('Bonus Challenge Reward');
+                          }}
+                          className="px-2.5 py-1 border border-neutral-300 hover:border-black rounded text-xs font-medium transition flex items-center gap-1 text-neutral-700 hover:text-black bg-white"
+                          title="Award or Deduct Score Points"
+                        >
+                          <span>± Pts</span>
+                        </button>
+
+                        <button
+                          onClick={() => openEditTeam(team)}
+                          className="px-2.5 py-1 border border-neutral-300 hover:border-black rounded text-xs font-medium transition flex items-center gap-1 text-neutral-700 hover:text-black bg-white"
+                          title="Edit Team, Code, Leader & Mobile"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                          <span>Edit</span>
+                        </button>
+
+                        <button
                           onClick={() => openAddPerson(team.id)}
-                          className="px-2.5 py-1 border border-neutral-300 hover:border-black rounded text-xs font-medium transition"
+                          className="px-2.5 py-1 border border-neutral-300 hover:border-black rounded text-xs font-medium transition bg-white"
                         >
                           + Player
                         </button>
 
                         <button
                           onClick={() => handleDeleteTeam(team.id, team.name)}
-                          className="p-1 border border-neutral-300 hover:border-black rounded text-neutral-600 hover:text-black transition"
+                          className="p-1 border border-neutral-300 hover:border-black rounded text-neutral-600 hover:text-black transition bg-white"
                           title="Delete Team"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -1961,7 +2255,239 @@ export default function AmongUsAdmin() {
         )}
 
         {/* ========================================================= */}
-        {/* TAB 5: USER & ROLE MANAGEMENT (MASTER ADMIN ONLY) */}
+        {/* TAB: STATION GAME POINTS & LIVE LEADERBOARD */}
+        {/* ========================================================= */}
+        {activeTab === 'games' && (
+          <div className="space-y-6">
+            {/* Header Description */}
+            <div className="p-4 border border-neutral-200 rounded-lg bg-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-xs">
+              <div>
+                <span className="font-bold text-sm block">Station Games & Rewards Engine</span>
+                <span className="text-neutral-500">
+                  Configure points awarded for each game. Crewmate points synchronize with the live leaderboard.
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded font-mono text-xs font-semibold">
+                  5 Games Active
+                </span>
+              </div>
+            </div>
+
+            {/* Game Points Configuration Card */}
+            <div className="p-5 border border-neutral-200 rounded-lg bg-white space-y-4 shadow-sm">
+              <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <Gamepad2 className="w-4 h-4 text-emerald-600" />
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-black">
+                    Point Allocation Per Game
+                  </h3>
+                </div>
+                <span className="text-xs text-neutral-400">Values update instantly across all player consoles</span>
+              </div>
+
+              <form onSubmit={handleSaveGamePoints} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                  <div className="p-3 border border-neutral-200 rounded-lg bg-neutral-50 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs">🎮 Wordle</span>
+                      <span className="text-[10px] text-neutral-400 font-mono">Word Decoder</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        min="5"
+                        max="500"
+                        value={pointsForm.wordle}
+                        onChange={e => setPointsForm({ ...pointsForm, wordle: parseInt(e.target.value) || 0 })}
+                        className="w-full border border-neutral-300 rounded px-2.5 py-1.5 text-xs font-mono font-bold bg-white text-black outline-none focus:border-black"
+                      />
+                      <span className="text-xs font-mono font-bold text-neutral-500">PTS</span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 border border-neutral-200 rounded-lg bg-neutral-50 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs">🎭 Emoji Decoder</span>
+                      <span className="text-[10px] text-neutral-400 font-mono">Movie Guess</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        min="5"
+                        max="500"
+                        value={pointsForm.emoji}
+                        onChange={e => setPointsForm({ ...pointsForm, emoji: parseInt(e.target.value) || 0 })}
+                        className="w-full border border-neutral-300 rounded px-2.5 py-1.5 text-xs font-mono font-bold bg-white text-black outline-none focus:border-black"
+                      />
+                      <span className="text-xs font-mono font-bold text-neutral-500">PTS</span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 border border-neutral-200 rounded-lg bg-neutral-50 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs">🖼️ Meme Decoder</span>
+                      <span className="text-[10px] text-neutral-400 font-mono">Visual Terminal</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        min="5"
+                        max="500"
+                        value={pointsForm.memedecoder}
+                        onChange={e => setPointsForm({ ...pointsForm, memedecoder: parseInt(e.target.value) || 0 })}
+                        className="w-full border border-neutral-300 rounded px-2.5 py-1.5 text-xs font-mono font-bold bg-white text-black outline-none focus:border-black"
+                      />
+                      <span className="text-xs font-mono font-bold text-neutral-500">PTS</span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 border border-neutral-200 rounded-lg bg-neutral-50 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs">⌨️ Code Typer</span>
+                      <span className="text-[10px] text-neutral-400 font-mono">Speed Typing</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        min="5"
+                        max="500"
+                        value={pointsForm.monkeytype}
+                        onChange={e => setPointsForm({ ...pointsForm, monkeytype: parseInt(e.target.value) || 0 })}
+                        className="w-full border border-neutral-300 rounded px-2.5 py-1.5 text-xs font-mono font-bold bg-white text-black outline-none focus:border-black"
+                      />
+                      <span className="text-xs font-mono font-bold text-neutral-500">PTS</span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 border border-neutral-200 rounded-lg bg-neutral-50 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs">👻 Pacman</span>
+                      <span className="text-[10px] text-neutral-400 font-mono">Arcade Survival</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        min="5"
+                        max="500"
+                        value={pointsForm.pacman}
+                        onChange={e => setPointsForm({ ...pointsForm, pacman: parseInt(e.target.value) || 0 })}
+                        className="w-full border border-neutral-300 rounded px-2.5 py-1.5 text-xs font-mono font-bold bg-white text-black outline-none focus:border-black"
+                      />
+                      <span className="text-xs font-mono font-bold text-neutral-500">PTS</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-black hover:bg-neutral-800 text-white rounded text-xs font-bold transition flex items-center gap-2 shadow-sm"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Save Station Game Points</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Live Leaderboard & Games Played Table */}
+            <div className="p-5 border border-neutral-200 rounded-lg bg-white space-y-4 shadow-sm">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-neutral-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <Trophy className="w-5 h-5 text-amber-500" />
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-black">
+                    Live Scoreboard & Game Progression
+                  </h3>
+                </div>
+                <span className="text-xs text-neutral-500 font-mono">
+                  Ranked by Total Score • {teams.length} Squads Active
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-neutral-50 border-b border-neutral-200 text-neutral-600 font-mono text-[11px] uppercase">
+                    <tr>
+                      <th className="py-2.5 px-3 font-semibold">Rank</th>
+                      <th className="py-2.5 px-3 font-semibold">Team & ID</th>
+                      <th className="py-2.5 px-3 font-semibold">Role</th>
+                      <th className="py-2.5 px-3 font-semibold">Sector</th>
+                      <th className="py-2.5 px-3 font-semibold text-center">Score</th>
+                      <th className="py-2.5 px-3 font-semibold text-center">Games Completed</th>
+                      <th className="py-2.5 px-3 font-semibold text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-100">
+                    {[...teams]
+                      .sort((a, b) => (b.score || 0) - (a.score || 0))
+                      .map((t, idx) => {
+                        const rank = idx + 1;
+                        const isImp = Boolean(t.isImpostor);
+                        return (
+                          <tr key={t.id} className="hover:bg-neutral-50/80 transition">
+                            <td className="py-3 px-3 font-mono font-bold">
+                              {rank === 1 && <span className="px-2 py-0.5 bg-amber-400 text-black rounded text-[11px] font-bold">🥇 #1</span>}
+                              {rank === 2 && <span className="px-2 py-0.5 bg-neutral-300 text-black rounded text-[11px] font-bold">🥈 #2</span>}
+                              {rank === 3 && <span className="px-2 py-0.5 bg-amber-700 text-white rounded text-[11px] font-bold">🥉 #3</span>}
+                              {rank > 3 && <span className="text-neutral-500">#{rank}</span>}
+                            </td>
+                            <td className="py-3 px-3">
+                              <span className="font-bold block text-black">{t.name}</span>
+                              <span className="font-mono text-[10px] text-neutral-400">ID: {t.teamCode || t.id}</span>
+                            </td>
+                            <td className="py-3 px-3">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-mono uppercase font-semibold ${isImp ? 'bg-red-100 text-red-800 border border-red-200' : 'bg-neutral-100 text-neutral-700'}`}>
+                                {isImp ? '⚡ Impostor' : '🛡️ Crewmate'}
+                              </span>
+                            </td>
+                            <td className="py-3 px-3 text-neutral-600">
+                              {t.assignedRoomName || t.assignedRoom || 'Unassigned'}
+                            </td>
+                            <td className="py-3 px-3 text-center">
+                              <span className="px-2.5 py-1 bg-amber-50 border border-amber-300 rounded font-mono font-bold text-amber-900 text-xs shadow-xs inline-block">
+                                ⭐ {t.score || 0} PTS
+                              </span>
+                            </td>
+                            <td className="py-3 px-3 text-center font-mono">
+                              <span className="px-2 py-0.5 bg-blue-50 border border-blue-200 rounded text-blue-800 text-[11px] font-medium inline-block">
+                                🎮 {t.gamesPlayed?.length || 0} Finished
+                              </span>
+                            </td>
+                            <td className="py-3 px-3 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  onClick={() => setSelectedTeamGames(t)}
+                                  className="px-2.5 py-1 border border-neutral-300 hover:border-black rounded text-xs font-medium transition bg-white text-neutral-700 hover:text-black"
+                                  title="View Games Played History"
+                                >
+                                  Inspect Games
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setAdjustPointsTeam(t);
+                                    setAdjustPointsDelta(10);
+                                    setAdjustPointsReason('Bonus Challenge Reward');
+                                  }}
+                                  className="px-2.5 py-1 border border-neutral-300 hover:border-black rounded text-xs font-medium transition bg-white text-neutral-700 hover:text-black"
+                                  title="Adjust Team Score"
+                                >
+                                  ± Points
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* TAB 6: USER & ROLE MANAGEMENT (MASTER ADMIN ONLY) */}
         {/* ========================================================= */}
         {activeTab === 'users' && user?.role === 'super_admin' && (
           <div className="space-y-5">
@@ -2336,7 +2862,9 @@ export default function AmongUsAdmin() {
             </div>
           </div>
         )}
-      </main>
+          </main>
+        </div>
+      </div>
 
       {/* ========================================================= */}
       {/* MODAL: ADD / EDIT ROOM */}
@@ -2421,73 +2949,138 @@ export default function AmongUsAdmin() {
       )}
 
       {/* ========================================================= */}
-      {/* MODAL: ADD TEAM */}
+      {/* MODAL: ADD / EDIT TEAM */}
       {/* ========================================================= */}
       {teamModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-white border border-neutral-300 rounded-xl p-5 shadow-lg space-y-4 text-xs font-sans">
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-white border border-neutral-300 rounded-xl p-5 shadow-2xl space-y-4 text-xs font-sans animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
-              <span className="font-bold text-sm">Add Team</span>
-              <button onClick={() => setTeamModalOpen(false)} className="text-neutral-400 hover:text-black">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-md bg-black text-white flex items-center justify-center font-bold text-xs">
+                  {editingTeamId ? '✎' : '+'}
+                </div>
+                <span className="font-bold text-sm text-neutral-900">
+                  {editingTeamId ? 'Edit Team Details' : 'Add New Team'}
+                </span>
+              </div>
+              <button
+                onClick={() => setTeamModalOpen(false)}
+                className="text-neutral-400 hover:text-black transition"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveTeam} className="space-y-3">
-              <div className="space-y-1">
-                <label className="block text-neutral-700 font-medium text-xs">Team Name</label>
-                <input
-                  type="text"
-                  value={teamForm.name}
-                  onChange={e => setTeamForm({ ...teamForm, name: e.target.value })}
-                  placeholder="e.g. Team 1, Red Squad"
-                  required
-                  className="w-full border border-neutral-300 rounded-md px-3 py-1.5 text-xs outline-none focus:border-black"
-                />
+            <form onSubmit={handleSaveTeam} className="space-y-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="block text-neutral-700 font-semibold text-xs">
+                    Team Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={teamForm.name}
+                    onChange={e => setTeamForm({ ...teamForm, name: e.target.value })}
+                    placeholder="e.g. Red Squad, Team 1"
+                    required
+                    className="w-full border border-neutral-300 rounded-md px-3 py-1.5 text-xs outline-none focus:border-black font-medium"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-neutral-700 font-semibold text-xs flex items-center justify-between">
+                    <span>Team ID / Code</span>
+                    <span className="text-[10px] text-neutral-400 font-normal">Login ID</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={teamForm.teamCode}
+                    onChange={e => setTeamForm({ ...teamForm, teamCode: e.target.value.toUpperCase() })}
+                    placeholder="e.g. NX-T1"
+                    className="w-full border border-neutral-300 rounded-md px-3 py-1.5 text-xs outline-none focus:border-black font-mono font-bold uppercase"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="block text-neutral-700 font-semibold text-xs flex items-center gap-1">
+                    <Crown className="w-3 h-3 text-neutral-600" />
+                    <span>Team Leader Name</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={teamForm.leaderName}
+                    onChange={e => setTeamForm({ ...teamForm, leaderName: e.target.value })}
+                    placeholder="e.g. Arjun Verma"
+                    className="w-full border border-neutral-300 rounded-md px-3 py-1.5 text-xs outline-none focus:border-black"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-neutral-700 font-semibold text-xs flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <Phone className="w-3 h-3 text-neutral-600" />
+                      <span>Leader Mobile</span>
+                    </span>
+                    <span className="text-[10px] text-neutral-400 font-normal">For Login</span>
+                  </label>
+                  <input
+                    type="tel"
+                    value={teamForm.phone}
+                    onChange={e => setTeamForm({ ...teamForm, phone: e.target.value })}
+                    placeholder="e.g. 9876543210"
+                    className="w-full border border-neutral-300 rounded-md px-3 py-1.5 text-xs outline-none focus:border-black font-mono"
+                  />
+                </div>
               </div>
 
               <div className="space-y-1">
-                <label className="block text-neutral-700 font-medium text-xs">
-                  Players (enter names, separated by commas or lines)
+                <label className="block text-neutral-700 font-semibold text-xs">
+                  Assigned Sector / Room (Optional)
+                </label>
+                <select
+                  value={teamForm.assignedRoomId}
+                  onChange={e => setTeamForm({ ...teamForm, assignedRoomId: e.target.value })}
+                  className="w-full border border-neutral-300 rounded-md px-3 py-1.5 text-xs outline-none bg-white font-medium"
+                >
+                  <option value="">Leave Unassigned</option>
+                  {rooms.map(r => (
+                    <option key={r.id} value={r.id}>
+                      {r.name} ({r.zone})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-neutral-700 font-semibold text-xs flex items-center justify-between">
+                  <span>Player Roster</span>
+                  <span className="text-[10px] text-neutral-400 font-normal">Comma or new-line separated</span>
                 </label>
                 <textarea
                   value={teamForm.playerNames}
                   onChange={e => setTeamForm({ ...teamForm, playerNames: e.target.value })}
                   placeholder="Rohan Sharma&#10;Sneha Kapoor&#10;Aditya Roy"
-                  rows={4}
-                  className="w-full border border-neutral-300 rounded-md px-3 py-1.5 text-xs outline-none focus:border-black"
+                  rows={3}
+                  className="w-full border border-neutral-300 rounded-md px-3 py-1.5 text-xs outline-none focus:border-black font-sans"
                 />
-              </div>
-
-              <div className="space-y-1">
-                <label className="block text-neutral-700 font-medium text-xs">Put in Room (Optional)</label>
-                <select
-                  value={teamForm.assignedRoomId}
-                  onChange={e => setTeamForm({ ...teamForm, assignedRoomId: e.target.value })}
-                  className="w-full border border-neutral-300 rounded-md px-3 py-1.5 text-xs outline-none bg-white"
-                >
-                  <option value="">Leave Unassigned</option>
-                  {rooms.map(r => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
-                    </option>
-                  ))}
-                </select>
               </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-neutral-100">
                 <button
                   type="button"
                   onClick={() => setTeamModalOpen(false)}
-                  className="px-3 py-1.5 border border-neutral-300 rounded-md font-medium text-xs"
+                  className="px-3.5 py-1.5 border border-neutral-300 hover:border-black rounded-md font-medium text-xs transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-3.5 py-1.5 bg-black text-white hover:bg-neutral-800 rounded-md font-medium text-xs transition"
+                  className="px-4 py-1.5 bg-black text-white hover:bg-neutral-800 rounded-md font-medium text-xs transition flex items-center gap-1.5 shadow-sm"
                 >
-                  Create Team
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>{editingTeamId ? 'Save Changes' : 'Create Team'}</span>
                 </button>
               </div>
             </form>
@@ -3352,6 +3945,158 @@ export default function AmongUsAdmin() {
           </div>
         );
       })()}
+
+      {/* Inspect Team Games Played Modal */}
+      {selectedTeamGames && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white border border-neutral-200 rounded-lg max-w-lg w-full p-5 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+              <div>
+                <h3 className="font-bold text-base text-black flex items-center gap-2">
+                  <Gamepad2 className="w-5 h-5 text-emerald-600" />
+                  <span>{selectedTeamGames.name}</span>
+                </h3>
+                <span className="text-xs text-neutral-500 font-mono">
+                  ID: {selectedTeamGames.teamCode || selectedTeamGames.id} • Score: {selectedTeamGames.score || 0} PTS
+                </span>
+              </div>
+              <button
+                onClick={() => setSelectedTeamGames(null)}
+                className="text-neutral-400 hover:text-black font-bold p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2 max-h-80 overflow-y-auto">
+              {!selectedTeamGames.gamesPlayed || selectedTeamGames.gamesPlayed.length === 0 ? (
+                <div className="p-8 text-center text-xs text-neutral-400 italic bg-neutral-50 rounded border border-dashed border-neutral-200">
+                  No mini-games completed yet by this team.
+                </div>
+              ) : (
+                selectedTeamGames.gamesPlayed.map((g, idx) => (
+                  <div
+                    key={g.id || idx}
+                    className="p-3 border border-neutral-200 rounded-lg bg-neutral-50 flex items-center justify-between gap-3 text-xs"
+                  >
+                    <div>
+                      <span className="font-bold block text-black">{g.gameTitle || g.gameId}</span>
+                      <span className="text-[10px] text-neutral-400 font-mono">
+                        {new Date(g.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })} • Raw Score: {g.score ?? 'N/A'}
+                      </span>
+                    </div>
+                    <span className="px-2.5 py-1 bg-emerald-100 border border-emerald-300 text-emerald-800 rounded font-mono font-bold text-xs">
+                      +{g.pointsAwarded} PTS
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="flex justify-between items-center pt-3 border-t border-neutral-100">
+              <span className="text-xs font-mono font-bold text-neutral-700">
+                Total Games Completed: {selectedTeamGames.gamesPlayed?.length || 0}
+              </span>
+              <button
+                onClick={() => setSelectedTeamGames(null)}
+                className="px-4 py-1.5 bg-black hover:bg-neutral-800 text-white rounded text-xs font-bold transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Adjust Points Modal */}
+      {adjustPointsTeam && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white border border-neutral-200 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+              <div>
+                <h3 className="font-bold text-base text-black flex items-center gap-1.5">
+                  <Trophy className="w-4 h-4 text-amber-500" />
+                  <span>Adjust Points</span>
+                </h3>
+                <span className="text-xs text-neutral-500">
+                  {adjustPointsTeam.name} (Current: {adjustPointsTeam.score || 0} PTS)
+                </span>
+              </div>
+              <button
+                onClick={() => setAdjustPointsTeam(null)}
+                className="text-neutral-400 hover:text-black font-bold p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleApplyPointsAdjustment} className="space-y-3.5 text-xs">
+              <div>
+                <label className="font-semibold block mb-1">Points Delta (+ or -):</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={adjustPointsDelta}
+                    onChange={e => setAdjustPointsDelta(parseInt(e.target.value) || 0)}
+                    className="w-full border border-neutral-300 rounded px-3 py-1.5 font-mono text-sm font-bold outline-none focus:border-black"
+                  />
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setAdjustPointsDelta(10)}
+                      className="px-2 py-1 bg-neutral-100 hover:bg-neutral-200 rounded font-mono text-[11px]"
+                    >
+                      +10
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAdjustPointsDelta(25)}
+                      className="px-2 py-1 bg-neutral-100 hover:bg-neutral-200 rounded font-mono text-[11px]"
+                    >
+                      +25
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAdjustPointsDelta(-10)}
+                      className="px-2 py-1 bg-neutral-100 hover:bg-neutral-200 rounded font-mono text-[11px]"
+                    >
+                      -10
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="font-semibold block mb-1">Reason / Note:</label>
+                <input
+                  type="text"
+                  value={adjustPointsReason}
+                  onChange={e => setAdjustPointsReason(e.target.value)}
+                  placeholder="e.g. Completed physical room task"
+                  className="w-full border border-neutral-300 rounded px-3 py-1.5 text-xs outline-none focus:border-black"
+                  required
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAdjustPointsTeam(null)}
+                  className="px-3 py-1.5 border border-neutral-300 rounded text-xs font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 bg-black hover:bg-neutral-800 text-white rounded text-xs font-bold transition"
+                >
+                  Apply {adjustPointsDelta >= 0 ? `+${adjustPointsDelta}` : adjustPointsDelta} PTS
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

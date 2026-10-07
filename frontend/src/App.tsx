@@ -17,10 +17,10 @@ export default function App() {
       <Router>
         <Suspense
           fallback={
-            <div className="min-h-screen bg-[#f6f4ee] paper-grid flex items-center justify-center font-mono text-xs text-neutral-800">
-              <div className="p-4 border-2 border-neutral-900 bg-white shadow-[4px_4px_0px_#111111] flex items-center gap-3">
-                <div className="w-4 h-4 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin" />
-                <span>LOADING NEXUS ALLOCATION OPERATIONS...</span>
+            <div className="min-h-screen bg-black flex items-center justify-center font-mono text-xs text-zinc-400">
+              <div className="p-4 border border-zinc-800 bg-zinc-950 flex items-center gap-3">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span>SYNCHRONIZING NEXUS TERMINAL...</span>
               </div>
             </div>
           }

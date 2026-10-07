@@ -76,8 +76,26 @@ export interface Team {
   impostorPlayerName?: string;
   powerPorts?: ImpostorPowerPort[]; // 3 Ports of power for Impostor teams
   activeEffects?: TeamActiveEffect[]; // Active effects targeting this crewmate team
+  gamesPlayed?: GamePlayedRecord[]; // Games completed by team members
   notes?: string;
   createdAt: string;
+}
+
+export interface GamePlayedRecord {
+  id: string;
+  gameId: 'wordle' | 'emoji' | 'memedecoder' | 'monkeytype' | 'pacman' | string;
+  gameTitle: string;
+  pointsAwarded: number;
+  score?: number;
+  timestamp: string;
+}
+
+export interface GamePointsConfig {
+  wordle: number;
+  emoji: number;
+  memedecoder: number;
+  monkeytype: number;
+  pacman: number;
 }
 
 export interface RoomRecord {

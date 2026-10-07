@@ -1,9 +1,12 @@
 // @ts-nocheck
 import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import * as THREE from 'three';
+import { supabase } from '../lib/supabase';
 import './Login.css';
 
 export default function Login() {
+  const navigate = useNavigate();
   const containerRef = React.useRef(null);
   const initialized = React.useRef(false);
 
@@ -14,13 +17,17 @@ export default function Login() {
     
     document.body.style.overflow = 'hidden';
 
+    let onWheel = null;
+    let onKey = null;
+    let onPointer = null;
+
     try {
       const $=s=>containerRef.current.querySelector(s),RM=matchMedia('(prefers-reduced-motion: reduce)').matches,wait=ms=>new Promise(r=>setTimeout(r,ms));
       const API_BASE=(import.meta.env.VITE_API_BASE_URL||import.meta.env.VITE_API_URL||'/api').replace(/\/$/,'');
       const pal=['#b13a45','#3f5fb8','#d68a3c','#6a63a8','#4fa39a','#c9b56a','#a85a9a','#7a8aa6'];
       const cm=c=>`<svg class="cm" viewBox="0 0 100 110" aria-hidden="true"><rect x="10" y="38" width="20" height="40" rx="9" fill="${c}" style="filter:brightness(.7)"/><path d="M25 40Q25 12 52 12Q79 12 79 40V90Q79 98 70 98H58Q54 98 54 93V82H46V93Q46 98 42 98H34Q25 98 25 90Z" fill="${c}"/><path d="M60 22Q79 26 79 44V90Q79 98 70 98H58Q54 98 54 93V82H62Q66 70 66 56Z" fill="#000" opacity=".17"/><rect x="42" y="26" width="36" height="24" rx="12" fill="#9fd2f5"/><rect x="49" y="30" width="18" height="6" rx="3" fill="#fff" opacity=".75"/></svg>`;
       let mode='cover',scene3d=null;
-      $('#oCm').innerHTML=cm(pal[0]);
+      if($('#oCm')) $('#oCm').innerHTML=cm(pal[0]);
       
       let color='#d11a1a';
       /* ===== 3D space scene ===== */
@@ -83,53 +90,205 @@ export default function Login() {
       try{scene3d=init3d()}catch(e){scene3d=null}
       const warpTo3=v=>{if(scene3d&&!RM)scene3d.S.warpT=v};
       
-      /* ===== cover: swipe up ===== */
-      const cover=$('#cover'),login=$('#login');let sy=null,prog=0,opened=false,moved=false;
-      function setP(p){prog=Math.max(0,Math.min(1,p));cover.style.setProperty('--p',prog);login.style.setProperty('--lo',prog);warpTo3(prog*.8)}
-      cover.onpointerdown=e=>{if(opened||e.target.closest('#hint'))return;sy=e.clientY;moved=false;cover.classList.remove('rel');cover.setPointerCapture(e.pointerId);login.classList.add('on');cover.style.cursor='grabbing'};
-      cover.onpointermove=e=>{if(sy==null)return;moved=true;setP((sy-e.clientY)/(innerHeight*.5))};
-      cover.onpointerup=cover.onpointercancel=()=>{if(sy==null)return;sy=null;cover.style.cursor='';cover.classList.add('rel');if(prog>.25)openLogin();else{setP(0);login.classList.remove('on')}};
-      function openLogin(){if(opened)return;opened=true;navigator.vibrate&&navigator.vibrate(30);mode='login';login.classList.add('on');cover.classList.add('rel');setP(1);warpTo3(1);setTimeout(()=>warpTo3(0),650);setTimeout(()=>{cover.classList.add('gone');$('#teamId').focus({preventScroll:true})},850)}
-      function backToCover(){opened=false;mode='cover';cover.classList.remove('gone');void cover.offsetWidth;cover.classList.add('rel');setP(0);setTimeout(()=>{if(!opened)login.classList.remove('on')},800)}
-      $('#hint').onclick=openLogin;$('#back').onclick=backToCover;
-      addEventListener('wheel',e=>{if(!opened&&mode==='cover'&&e.deltaY>20)openLogin();else if(opened&&mode==='login'&&scrollY===0&&e.deltaY<-40)backToCover()},{passive:true});
-      addEventListener('keydown',e=>{if(!opened&&mode==='cover'&&['ArrowUp','ArrowDown','Enter',' '].includes(e.key)){e.preventDefault();openLogin()}});
-      if(!RM&&matchMedia('(hover:hover)').matches)addEventListener('pointermove',e=>{const t=$('#title');t.style.setProperty('--ty',((e.clientX/innerWidth-.5)*16)+'deg');t.style.setProperty('--tx',(-(e.clientY/innerHeight-.5)*12)+'deg')});
+      /* ===== cover: swipe up & scroll transition ===== */
+      const cover=$('#cover'),login=$('#login');
+      let sy=null,prog=0,opened=false,moved=false;
+      function setP(p){
+        prog=Math.max(0,Math.min(1,p));
+        if(cover) cover.style.setProperty('--p',prog);
+        if(login) login.style.setProperty('--lo',prog);
+        warpTo3(prog*.8);
+      }
+      if(cover){
+        cover.onpointerdown=e=>{
+          if(opened||e.target.closest('#hint')) return;
+          sy=e.clientY;
+          moved=false;
+          cover.classList.remove('rel');
+          cover.setPointerCapture(e.pointerId);
+          if(login) login.classList.add('on');
+          cover.style.cursor='grabbing';
+        };
+        cover.onpointermove=e=>{
+          if(sy==null) return;
+          moved=true;
+          setP((sy-e.clientY)/(innerHeight*.45));
+        };
+        cover.onpointerup=cover.onpointercancel=()=>{
+          if(sy==null) return;
+          sy=null;
+          cover.style.cursor='';
+          cover.classList.add('rel');
+          if(prog>.2) openLogin();
+          else { setP(0); if(login) login.classList.remove('on'); }
+        };
+      }
+      function openLogin(){
+        if(opened) return;
+        opened=true;
+        navigator.vibrate&&navigator.vibrate(30);
+        mode='login';
+        if(login) login.classList.add('on');
+        if(cover) cover.classList.add('rel');
+        setP(1);
+        warpTo3(1);
+        setTimeout(()=>warpTo3(0),650);
+        setTimeout(()=>{
+          if(cover) cover.classList.add('gone');
+          $('#teamId')?.focus({preventScroll:true});
+        },850);
+      }
+      function backToCover(){
+        opened=false;
+        mode='cover';
+        if(cover) {
+          cover.classList.remove('gone');
+          void cover.offsetWidth;
+          cover.classList.add('rel');
+        }
+        setP(0);
+        setTimeout(()=>{
+          if(!opened && login) login.classList.remove('on');
+        },800);
+      }
+      if($('#hint')) $('#hint').onclick=openLogin;
+      if($('#back')) $('#back').onclick=backToCover;
+
+      onWheel=e=>{
+        if(!opened && mode==='cover' && e.deltaY > 15) {
+          openLogin();
+        } else if(opened && mode==='login' && window.scrollY <= 0 && e.deltaY < -30) {
+          backToCover();
+        }
+      };
+      window.addEventListener('wheel',onWheel,{passive:true});
+
+      onKey=e=>{
+        if(!opened && mode==='cover' && ['ArrowUp','ArrowDown','Enter',' '].includes(e.key)){
+          e.preventDefault();
+          openLogin();
+        } else if(opened && mode==='login' && e.key === 'Escape') {
+          backToCover();
+        }
+      };
+      window.addEventListener('keydown',onKey);
+
+      if(!RM && matchMedia('(hover:hover)').matches){
+        onPointer=e=>{
+          const t=$('#title');
+          if(t){
+            t.style.setProperty('--ty',((e.clientX/innerWidth-.5)*16)+'deg');
+            t.style.setProperty('--tx',(-(e.clientY/innerHeight-.5)*12)+'deg');
+          }
+        };
+        window.addEventListener('pointermove',onPointer);
+      }
       
       /* ===== login ===== */
       const fr=$('#frame');
       if(!RM&&matchMedia('(hover:hover)').matches){fr.onpointermove=e=>{const b=fr.getBoundingClientRect(),x=(e.clientX-b.left)/b.width-.5,y=(e.clientY-b.top)/b.height-.5;fr.style.transform=`perspective(1000px) rotateY(${x*6}deg) rotateX(${-y*6}deg)`};fr.onpointerleave=()=>fr.style.transform=''}
       $('#teamId').oninput=e=>e.target.removeAttribute('aria-invalid');
-      $('#playerName').oninput=e=>e.target.removeAttribute('aria-invalid');
-      function fail(msg,el){$('#err').textContent=msg;el.setAttribute('aria-invalid','true');el.focus();fr.classList.remove('shake');void fr.offsetWidth;fr.classList.add('shake')}
+      const phoneInput = $('#leaderPhone') || $('#playerName');
+      if(phoneInput) phoneInput.oninput=e=>e.target.removeAttribute('aria-invalid');
+      function fail(msg,el){$('#err').textContent=msg;if(el){el.setAttribute('aria-invalid','true');el.focus();}fr.classList.remove('shake');void fr.offsetWidth;fr.classList.add('shake')}
       async function warpTo(steps,done){const w=$('#warp'),fl=$('#flash');w.classList.add('on');$('#pbi').style.width='0';warpTo3(1);await wait(RM?0:500);
        for(const [i,s] of steps.entries()){$('#stx').textContent=s;$('#pbi').style.width=((i+1)/steps.length*100)+'%';await wait(RM?80:650)}
        fl.style.opacity=1;await wait(RM?0:350);done();warpTo3(0);scrollTo(0,0);w.classList.remove('on');fl.style.opacity=0}
       $('#f').onsubmit=async e=>{
        e.preventDefault();
        const teamId=$('#teamId').value.trim().toUpperCase();
-       const playerName=$('#playerName').value.trim().replace(/\s+/g,' ');
-       if(!/^[A-Z0-9][A-Z0-9-]{1,39}$/.test(teamId))return fail('Enter the Team ID shown on your event pass.',$('#teamId'));
-       if(playerName.length<2||playerName.length>60||/[\u0000-\u001f\u007f]/u.test(playerName))return fail('Enter a player name between 2 and 60 characters.',$('#playerName'));
+       const pInput=$('#leaderPhone') || $('#playerName');
+       const leaderPhone=pInput.value.trim();
+       const phoneDigits=leaderPhone.replace(/\D/g,'');
+       if(!/^[A-Z0-9][A-Z0-9-]{1,39}$/.test(teamId))return fail('Enter the Team ID shown on your event pass (e.g. NX-T1).', $('#teamId'));
+       if(phoneDigits.length<7 && leaderPhone.length<2)return fail('Enter the mobile number of your Team Leader.', pInput);
        $('#err').textContent='';
        const submit=$('#f button[type="submit"]');
        submit.disabled=true;
        submit.setAttribute('aria-busy','true');
+
+       const animation=warpTo(['Verifying Team ID…','Validating Leader Contact…','Synchronizing event session…'],()=>{});
+
        try{
-        const request=fetch(`${API_BASE}/teams/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({teamId,playerName})})
-         .then(async response=>{const result=await response.json().catch(()=>null);if(!response.ok||!result?.success)throw new Error(result?.message||'Sign-in failed. Please try again.');return result.data});
-        const animation=warpTo(['Verifying Team ID…','Checking player roster…','Synchronizing event session…'],()=>{});
-        let session;
-        try{session=await request}catch(error){await animation;throw error}
+        let session = null;
+
+        // 1. Backend REST Endpoint
+        try {
+          const response = await fetch(`${API_BASE}/teams/login`, {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({teamId,phone:leaderPhone,mobileNumber:leaderPhone,playerName:leaderPhone})
+          });
+          const result = await response.json().catch(()=>null);
+          if (response.ok && result?.success && result?.data) {
+            const d = result.data;
+            session = {
+              teamId: d.team?.teamCode || teamId,
+              phone: d.player?.phone || leaderPhone,
+              playerName: d.player?.name || leaderPhone,
+              teamName: d.team?.name || 'Cyber Phantoms',
+              isImpostor: Boolean(d.team?.isImpostor),
+              assignedRoom: d.team?.assignedRoom || 'Room 1 (Command Hub)',
+              eventStatus: d.eventSession?.status || 'active'
+            };
+          }
+        } catch (backendErr) {
+          console.warn('Backend login unavailable, attempting direct Supabase query:', backendErr);
+        }
+
+        // 2. Direct Supabase Cloud Fallback (zero backend dependency)
+        if (!session && supabase) {
+          try {
+            const { data: teams, error: sbErr } = await supabase
+              .from('teams')
+              .select('*')
+              .or(`team_code.ilike.${teamId},badge_code.ilike.${teamId},name.ilike.${teamId}`);
+
+            if (sbErr) {
+              console.warn('Supabase query error:', sbErr);
+            } else if (teams && teams.length > 0) {
+              const matchedTeam = teams.find(t => {
+                const dbPhone = String(t.phone || t.leader_phone || t.mobile_number || '').replace(/\D/g, '');
+                if (!phoneDigits) return true;
+                if (dbPhone && (dbPhone.includes(phoneDigits) || phoneDigits.includes(dbPhone) || dbPhone.slice(-7) === phoneDigits.slice(-7))) {
+                  return true;
+                }
+                if (Array.isArray(t.members)) {
+                  return t.members.some(m => {
+                    const mDigits = String(m.phone || '').replace(/\D/g, '');
+                    return mDigits && (mDigits.includes(phoneDigits) || phoneDigits.includes(mDigits));
+                  });
+                }
+                return false;
+              }) || teams[0];
+
+              if (matchedTeam) {
+                session = {
+                  teamId: matchedTeam.team_code || matchedTeam.badge_code || teamId,
+                  phone: matchedTeam.phone || leaderPhone,
+                  playerName: matchedTeam.leader_name || matchedTeam.impostor_player_name || 'Operative',
+                  teamName: matchedTeam.name,
+                  isImpostor: Boolean(matchedTeam.is_impostor),
+                  assignedRoom: matchedTeam.assigned_room || matchedTeam.assigned_room_name || 'Room 1 (Command Hub)',
+                  eventStatus: matchedTeam.status || 'active'
+                };
+              }
+            }
+          } catch (sbException) {
+            console.error('Supabase direct auth error:', sbException);
+          }
+        }
+
+        if (!session) {
+          throw new Error('Invalid Team ID or Leader Mobile Number. Please verify credentials.');
+        }
+
         await animation;
-        localStorage.setItem('nexus_player_session',JSON.stringify({
-         teamId:session.team.teamCode,
-         playerName:session.player.name
-        }));
-        window.location.assign('player.html');
+        localStorage.setItem('nexus_player_session', JSON.stringify(session));
+        navigate('/player', { replace: true });
        }catch(error){
         const message=error instanceof Error?error.message:'Player sign-in failed. Please try again.';
-        fail(message,message.toLowerCase().includes('team id')?$('#teamId'):$('#playerName'));
+        fail(message,message.toLowerCase().includes('team id')?$('#teamId'):pInput);
        }finally{
         submit.disabled=false;
         submit.removeAttribute('aria-busy');
@@ -142,8 +301,11 @@ export default function Login() {
     
     return () => {
       document.body.style.overflow = '';
+      if (onWheel) window.removeEventListener('wheel', onWheel);
+      if (onKey) window.removeEventListener('keydown', onKey);
+      if (onPointer) window.removeEventListener('pointermove', onPointer);
     };
-  }, []);
+  }, [navigate]);
 
   return (
     <div className="login-container" ref={containerRef}>
@@ -157,9 +319,9 @@ export default function Login() {
         <p className="pres">PRESENTS</p>
         <div className="stage"><h1 className="title" id="title" aria-label="Among Us Coded Chaos"><span className="t1" aria-hidden="true">AM<i className="o" id="oCm"></i>NG US</span><span className="t2" aria-hidden="true">CODED CHAOS</span></h1></div>
         <ul className="tags"><li>Deceive</li><li>Discuss</li><li>Decipher</li><li>Survive</li></ul>
-        <button className="hint" id="hint" aria-label="Swipe up to enter"><span className="chev"><i></i><i></i><i></i></span>SWIPE UP</button>
+        <button className="hint" id="hint" aria-label="Swipe up to enter"><span className="chev"><i></i><i></i><i></i></span>SWIPE UP / SCROLL</button>
       </section>
-      
+
       <main className="screen" id="login">
         <div className="lg">
           <div className="nlogo" aria-label="Nexus">
@@ -168,13 +330,13 @@ export default function Login() {
           </div>
           <div className="frame" id="frame"><div className="in">
             <form id="f" noValidate>
-              <div className="inp"><label className="sr" htmlFor="teamId">Team ID</label><svg className="ic" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/><circle cx="18" cy="17" r="3"/></svg><input type="text" id="teamId" maxLength="40" autoComplete="off" autoCapitalize="characters" spellCheck="false" enterKeyHint="next" placeholder="Team ID" aria-describedby="err" /></div>
-              <div className="inp"><label className="sr" htmlFor="playerName">Player name</label><svg className="ic" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6"/><circle cx="17.5" cy="9" r="2.4"/><path d="M17 14.2c2.4.2 4 2.2 4 4.8"/></svg><input type="text" id="playerName" maxLength="60" autoComplete="name" autoCapitalize="words" enterKeyHint="go" placeholder="Player Name" aria-describedby="err" /></div>
+              <div className="inp"><label className="sr" htmlFor="teamId">Team ID</label><svg className="ic" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/><circle cx="18" cy="17" r="3"/></svg><input type="text" id="teamId" maxLength="40" autoComplete="off" autoCapitalize="characters" spellCheck="false" enterKeyHint="next" placeholder="Team ID (e.g. NX-T1)" aria-describedby="err" /></div>
+              <div className="inp"><label className="sr" htmlFor="leaderPhone">Leader Mobile Number</label><svg className="ic" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg><input type="tel" id="leaderPhone" maxLength="20" autoComplete="tel" enterKeyHint="go" placeholder="Leader Mobile (10 digits)" aria-describedby="err" /></div>
               <div className="err" id="err" role="alert" aria-live="polite"></div>
               <div className="enterw"><button className="enter" type="submit"><span>ENTER <svg className="ic" viewBox="0 0 24 24"><path d="M4 12h15M13 6l6 6-6 6"/></svg></span></button></div>
             </form>
           </div></div>
-          <button className="back" id="back">Back to the cover</button>
+          <button className="back" id="back" type="button">Back to the cover</button>
         </div>
       </main>
       

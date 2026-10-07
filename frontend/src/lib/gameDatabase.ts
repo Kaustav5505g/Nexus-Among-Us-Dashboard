@@ -1,4 +1,4 @@
-import { Team, RoomRecord, PlayerMember, AdminUser, ActivityLogItem, ImpostorPowerPort, TeamActiveEffect } from '../types';
+import { Team, RoomRecord, PlayerMember, AdminUser, ActivityLogItem, ImpostorPowerPort, TeamActiveEffect, GamePlayedRecord, GamePointsConfig } from '../types';
 import { INITIAL_ADMIN_TEAMS, INITIAL_ROOMS } from '../data/initialAdminData';
 import { supabase } from './supabase';
 import { isRootMasterAccount } from '../utils/permissions';
@@ -8,6 +8,15 @@ const TEAMS_STORAGE_KEY = 'nexus_teams_v2';
 const STAFF_STORAGE_KEY = 'nexus_admin_staff_v2';
 const LOGS_STORAGE_KEY = 'nexus_activity_logs_v2';
 const POWERS_STORAGE_KEY = 'nexus_powers_v2';
+const GAME_POINTS_STORAGE_KEY = 'nexus_game_points_config_v2';
+
+export const DEFAULT_GAME_POINTS: GamePointsConfig = {
+  wordle: 50,
+  emoji: 40,
+  memedecoder: 45,
+  monkeytype: 35,
+  pacman: 60,
+};
 
 export const STANDARD_POWER_LIBRARY: Omit<ImpostorPowerPort, 'port'>[] = [
   {
@@ -225,6 +234,7 @@ async function syncTeamsToSupabase(teams: Team[]) {
   try {
     if (!supabase) return;
     const payload = teams.map(t => {
+      const code = t.teamCode || t.badgeCode || null;
       const row: Record<string, any> = {
         name: t.name,
         leader_name: t.leaderName || t.name,
@@ -233,7 +243,8 @@ async function syncTeamsToSupabase(teams: Team[]) {
         color: t.color || '#00F0FF',
         score: t.score || 0,
         status: t.status || 'active',
-        team_code: t.teamCode || null,
+        team_code: code,
+        badge_code: code,
         assigned_room: t.assignedRoomName || 'Room 1',
         assigned_room_id: t.assignedRoomId || null,
         assigned_room_name: t.assignedRoomName || null,
@@ -242,6 +253,7 @@ async function syncTeamsToSupabase(teams: Team[]) {
         impostor_player_name: t.impostorPlayerName || null,
         power_ports: t.powerPorts || [],
         active_effects: t.activeEffects || [],
+        games_played: t.gamesPlayed || [],
         members: (t.memberDetails || []).map(m => ({
           id: m.id,
           name: m.name,
@@ -274,7 +286,8 @@ async function syncStaffToSupabase(staff: AdminUser[]) {
         email: s.email,
         role: s.role,
         title: s.title || null,
-        password_hash: s.password || null,
+        poc_room: s.pocRoom || null,
+        password: s.password || 'Nexus@123',
         updated_at: new Date().toISOString(),
       };
       if (isUUID(s.id)) {
@@ -282,9 +295,12 @@ async function syncStaffToSupabase(staff: AdminUser[]) {
       }
       return row;
     });
-    await supabase.from('admin_users').upsert(payload, { onConflict: 'username' });
+    const { error } = await supabase.from('admin_users').upsert(payload, { onConflict: 'username' });
+    if (error) {
+      console.error('Failed to sync staff to Supabase:', error);
+    }
   } catch (err) {
-    // Graceful offline/network fallback
+    console.error('syncStaffToSupabase error:', err);
   }
 }
 
@@ -497,12 +513,15 @@ export const AllocationDatabase = {
     phone?: string;
     email?: string;
     notes?: string;
+    teamCode?: string;
+    badgeCode?: string;
     memberNames?: string[];
     playerList?: { name: string; regNo?: string; phone?: string; email?: string }[];
   }): Team {
     const teams = this.getTeams();
     const teamId = generateId('team');
-    const teamCode = `NX-T${teams.length + 1}`;
+    const teamCode = teamData.teamCode?.trim().toUpperCase() || `NX-T${teams.length + 1}`;
+    const badgeCode = teamData.badgeCode?.trim().toUpperCase() || teamCode;
 
     let members: PlayerMember[] = [];
     if (teamData.playerList && teamData.playerList.length > 0) {
@@ -527,8 +546,9 @@ export const AllocationDatabase = {
     const newTeam: Team = {
       id: teamId,
       teamCode,
+      badgeCode,
       name: teamData.name.trim(),
-      leaderName: teamData.leaderName?.trim(),
+      leaderName: teamData.leaderName?.trim() || '',
       phone: teamData.phone?.trim() || '',
       email: teamData.email?.trim() || '',
       notes: teamData.notes?.trim() || '',
@@ -547,6 +567,9 @@ export const AllocationDatabase = {
     const updated = teams.map(t => {
       if (t.id === id) {
         const next = { ...t, ...updates };
+        if (updates.teamCode && !updates.badgeCode) {
+          next.badgeCode = updates.teamCode;
+        }
         if (updates.members && !updates.memberDetails) {
           next.memberDetails = normalizeTeamMembers(next);
         }
@@ -812,18 +835,7 @@ export const AllocationDatabase = {
       if (rootAccount && !finalUsers.some(u => isRootMasterAccount(u))) {
         finalUsers.unshift(rootAccount);
       }
-      // Never store sensitive credentials/passwords in browser localStorage (OWASP / CodeQL compliance)
-      const sanitizedProfiles: Omit<AdminUser, 'password'>[] = finalUsers.map(u => ({
-        id: u.id,
-        facilitatorId: u.facilitatorId || u.username || u.id,
-        username: u.username,
-        name: u.name,
-        email: u.email,
-        role: u.role,
-        pocRoom: u.pocRoom,
-        title: u.title,
-      }));
-      localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(sanitizedProfiles));
+      localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(finalUsers));
     } catch (e) {
       console.error('Failed to save staff users to localStorage', e);
     }
@@ -840,9 +852,28 @@ export const AllocationDatabase = {
       ...user,
       id: generateId('staff'),
       facilitatorId: user.facilitatorId || user.username,
+      password: user.password || 'Nexus@123',
     };
     const updated = [...users, newUser];
     this.saveStaffUsers(updated);
+
+    // Immediate Supabase write
+    if (supabase) {
+      supabase.from('admin_users').upsert([{
+        facilitator_id: newUser.facilitatorId || newUser.username,
+        username: newUser.username,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+        title: newUser.title || null,
+        poc_room: newUser.pocRoom || null,
+        password: newUser.password,
+        updated_at: new Date().toISOString(),
+      }], { onConflict: 'username' }).then(({ error }) => {
+        if (error) console.error('Failed to create staff in Supabase:', error);
+      }, () => {});
+    }
+
     return newUser;
   },
 
@@ -866,6 +897,25 @@ export const AllocationDatabase = {
     }
     const updated = users.map(u => (u.id === id ? { ...u, ...updates } : u));
     this.saveStaffUsers(updated);
+
+    // Immediate Supabase write
+    const updatedUser = updated.find(u => u.id === id);
+    if (updatedUser && supabase) {
+      supabase.from('admin_users').upsert([{
+        facilitator_id: updatedUser.facilitatorId || updatedUser.username,
+        username: updatedUser.username,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        title: updatedUser.title || null,
+        poc_room: updatedUser.pocRoom || null,
+        password: updatedUser.password || 'Nexus@123',
+        updated_at: new Date().toISOString(),
+      }], { onConflict: 'username' }).then(({ error }) => {
+        if (error) console.error('Failed to update staff in Supabase:', error);
+      }, () => {});
+    }
+
     return updated;
   },
 
@@ -879,6 +929,14 @@ export const AllocationDatabase = {
     }
     const updated = users.filter(u => u.id !== id);
     this.saveStaffUsers(updated);
+
+    // Immediate Supabase delete
+    if (target && supabase) {
+      supabase.from('admin_users').delete().eq('username', target.username).then(({ error }) => {
+        if (error) console.error('Failed to delete staff from Supabase:', error);
+      }, () => {});
+    }
+
     return updated;
   },
 
@@ -1383,6 +1441,179 @@ export const AllocationDatabase = {
     return logEntry;
   },
 
+  triggerPower(
+    impostorTeamId: string,
+    powerName: string,
+    targetTeamId?: string
+  ): { success: boolean; message: string; log?: ActivityLogItem; targetTeam?: Team } {
+    const teams = this.getTeams();
+    const impostor = teams.find(
+      t => t.id === impostorTeamId || t.teamCode?.toUpperCase() === impostorTeamId.toUpperCase()
+    );
+
+    if (!impostor) {
+      return { success: false, message: 'Impostor team not found.' };
+    }
+
+    let targetTeam: Team | undefined;
+    if (targetTeamId) {
+      targetTeam = teams.find(
+        t => t.id === targetTeamId || t.teamCode?.toUpperCase() === targetTeamId.toUpperCase()
+      );
+    }
+
+    const duration = 40;
+    if (targetTeam) {
+      const newEffect: TeamActiveEffect = {
+        id: generateId('eff'),
+        powerName: powerName,
+        appliedByTeamId: impostor.teamCode || impostor.id,
+        appliedByTeamName: impostor.name,
+        appliedAt: new Date().toISOString(),
+        durationSeconds: duration,
+        expiresAt: Date.now() + duration * 1000,
+        description: `Targeted by Impostor power: ${powerName}`,
+      };
+
+      const now = Date.now();
+      targetTeam.activeEffects = [
+        ...(targetTeam.activeEffects || []).filter(e => e.expiresAt > now),
+        newEffect,
+      ];
+    }
+
+    this.saveTeams(teams);
+
+    const actionText = targetTeam
+      ? `⚡ IMPOSTOR POWER: ${impostor.name} (${impostor.teamCode || impostor.id}) activated [${powerName}] targeting ${targetTeam.name} (${targetTeam.teamCode || targetTeam.id}) in ${impostor.assignedRoomName || 'Sector'}! Effect active for ${duration}s.`
+      : `⚡ IMPOSTOR POWER: ${impostor.name} (${impostor.teamCode || impostor.id}) activated [${powerName}] in ${impostor.assignedRoomName || 'Sector'}!`;
+
+    const logEntry = this.addLog({
+      type: 'power',
+      message: actionText,
+      teamId: impostor.teamCode || impostor.id,
+      teamName: impostor.name,
+      targetTeamId: targetTeam ? (targetTeam.teamCode || targetTeam.id) : undefined,
+      targetTeamName: targetTeam ? targetTeam.name : undefined,
+      roomId: impostor.assignedRoomId,
+      roomName: impostor.assignedRoomName,
+      powerName: powerName,
+      severity: 'danger',
+    });
+
+    return {
+      success: true,
+      message: actionText,
+      log: logEntry,
+      targetTeam,
+    };
+  },
+
+  getGamePointsConfig(): GamePointsConfig {
+    try {
+      const stored = localStorage.getItem(GAME_POINTS_STORAGE_KEY);
+      if (stored) {
+        return { ...DEFAULT_GAME_POINTS, ...JSON.parse(stored) };
+      }
+    } catch (e) {
+      console.warn('Failed to parse game points config from localStorage', e);
+    }
+    return { ...DEFAULT_GAME_POINTS };
+  },
+
+  saveGamePointsConfig(config: GamePointsConfig): GamePointsConfig {
+    try {
+      localStorage.setItem(GAME_POINTS_STORAGE_KEY, JSON.stringify(config));
+    } catch (e) {
+      console.warn('Failed to save game points config', e);
+    }
+    return config;
+  },
+
+  recordGameCompletion(
+    teamIdentifier: string,
+    gameId: string,
+    gameTitle: string,
+    rawScore?: number
+  ): { success: boolean; team?: Team; pointsAwarded: number; newScore: number } {
+    const teams = this.getTeams();
+    const config = this.getGamePointsConfig();
+    const pointsAwarded = (config as any)[gameId] ?? 50;
+
+    const team = teams.find(
+      t =>
+        t.id === teamIdentifier ||
+        t.teamCode?.toUpperCase() === teamIdentifier.toUpperCase() ||
+        t.name.toLowerCase() === teamIdentifier.toLowerCase()
+    );
+
+    if (!team) {
+      return { success: false, pointsAwarded, newScore: 0 };
+    }
+
+    const record: GamePlayedRecord = {
+      id: generateId('game-play'),
+      gameId,
+      gameTitle,
+      pointsAwarded,
+      score: rawScore,
+      timestamp: new Date().toISOString(),
+    };
+
+    const newScore = (team.score || 0) + pointsAwarded;
+    team.score = newScore;
+    team.tasksCompleted = (team.tasksCompleted || 0) + 1;
+    team.gamesPlayed = [record, ...(team.gamesPlayed || [])];
+
+    this.saveTeams(teams);
+
+    this.addLog({
+      type: 'task',
+      message: `🎮 GAME COMPLETED: ${team.name} (${team.teamCode || team.id}) completed ${gameTitle} and earned +${pointsAwarded} pts! (Total: ${newScore} pts)`,
+      teamId: team.teamCode || team.id,
+      teamName: team.name,
+      roomId: team.assignedRoomId,
+      roomName: team.assignedRoomName,
+      severity: 'success',
+    });
+
+    return {
+      success: true,
+      team,
+      pointsAwarded,
+      newScore,
+    };
+  },
+
+  adjustTeamScore(
+    teamId: string,
+    deltaPoints: number,
+    reason: string = 'Admin score adjustment'
+  ): { success: boolean; team?: Team; newScore: number } {
+    const teams = this.getTeams();
+    const team = teams.find(
+      t => t.id === teamId || t.teamCode?.toUpperCase() === teamId.toUpperCase()
+    );
+
+    if (!team) {
+      return { success: false, newScore: 0 };
+    }
+
+    const newScore = Math.max(0, (team.score || 0) + deltaPoints);
+    team.score = newScore;
+    this.saveTeams(teams);
+
+    this.addLog({
+      type: 'task',
+      message: `⚙️ SCORE ADJUSTMENT: ${team.name} (${team.teamCode || team.id}) ${deltaPoints >= 0 ? '+' : ''}${deltaPoints} pts (${reason}). New Total: ${newScore} pts.`,
+      teamId: team.teamCode || team.id,
+      teamName: team.name,
+      severity: deltaPoints >= 0 ? 'success' : 'warning',
+    });
+
+    return { success: true, team, newScore };
+  },
+
   // -------------------------------------------------------------
   // ACTIVITY & AUDIT LOGS
   // -------------------------------------------------------------
@@ -1478,6 +1709,7 @@ export const AllocationDatabase = {
           impostorPlayerName: t.impostor_player_name || undefined,
           powerPorts: t.power_ports || (t.is_impostor ? createDefaultPowerPorts() : undefined),
           activeEffects: t.active_effects || [],
+          gamesPlayed: t.games_played || t.gamesPlayed || [],
           members: Array.isArray(t.members) ? t.members.map((m: any) => typeof m === 'string' ? m : m.name) : [],
           memberDetails: Array.isArray(t.members) ? t.members.map((m: any, idx: number) => typeof m === 'string' ? { id: `m-${idx}`, name: m } : m) : [],
           createdAt: t.created_at || new Date().toISOString(),
@@ -1486,18 +1718,19 @@ export const AllocationDatabase = {
         teamsCount = mappedTeams.length;
       }
 
-      // 3. Fetch Admin Users (Operational profiles only - never store cleartext credentials in localStorage)
+      // 3. Fetch Admin Users from Supabase
       const { data: staffData, error: staffErr } = await supabase
         .from('admin_users')
-        .select('id, facilitator_id, username, name, email, role, poc_room, title');
+        .select('*');
       if (!staffErr && staffData && staffData.length > 0) {
-        const mappedStaff: Omit<AdminUser, 'password'>[] = staffData.map((s: any) => ({
+        const mappedStaff: AdminUser[] = staffData.map((s: any) => ({
           id: s.id,
           facilitatorId: s.facilitator_id || s.username || s.id,
           username: s.username,
           name: s.name,
           email: s.email,
           role: s.role,
+          password: s.password || '',
           pocRoom: s.poc_room || undefined,
           title: s.title || undefined,
         }));
