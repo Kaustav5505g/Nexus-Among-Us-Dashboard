@@ -1,5 +1,5 @@
 
-    :root {
+    .player-container {
       --bg: #000000;
       --card-bg: #0a0a0a;
       --card-sub: #111113;
@@ -10,7 +10,7 @@
       --text-dim: #71717a;
     }
 
-    * {
+    .player-container *, .player-container *::before, .player-container *::after {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
