@@ -161,7 +161,7 @@ const INITIAL_ACTIVITY_LOGS: ActivityLogItem[] = [
     id: 'log-1',
     timestamp: new Date(Date.now() - 3600000).toISOString(),
     type: 'system',
-    message: 'System initialized. 6 Sector Rooms and 5 Teams active.',
+    message: 'System initialized.',
     severity: 'info',
   },
   {
@@ -403,7 +403,7 @@ export const AllocationDatabase = {
       const stored = localStorage.getItem(ROOMS_STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed;
         }
       }
@@ -516,7 +516,7 @@ export const AllocationDatabase = {
       const stored = localStorage.getItem(TEAMS_STORAGE_KEY);
       if (stored) {
         const parsed: Team[] = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           const now = Date.now();
           return parsed.map((t, idx) => {
             const isImp = !!t.isImpostor;
@@ -847,6 +847,42 @@ export const AllocationDatabase = {
     return updated;
   },
 
+  markGameCompleted(teamId: string, gameId: string, points: number = 5): Team | null {
+    const teams = this.getTeams();
+    let updatedTeam: Team | null = null;
+    const updated: Team[] = teams.map(t => {
+      // Allow matching by teamId, teamCode, or badgeCode
+      if (t.id === teamId || t.teamCode?.toUpperCase() === teamId.toUpperCase() || t.badgeCode?.toUpperCase() === teamId.toUpperCase()) {
+        const gamesPlayed = t.gamesPlayed || [];
+        if (!gamesPlayed.some(g => g.gameId === gameId)) {
+          const newTeam: Team = {
+            ...t,
+            score: (t.score || 0) + points,
+            gamesPlayed: [
+              ...gamesPlayed,
+              {
+                id: generateId('game'),
+                gameId,
+                gameTitle: gameId,
+                pointsAwarded: points,
+                score: points,
+                timestamp: new Date().toISOString(),
+              }
+            ]
+          };
+          updatedTeam = newTeam;
+          return newTeam;
+        }
+      }
+      return t;
+    });
+    
+    if (updatedTeam) {
+      this.saveTeams(updated);
+    }
+    return updatedTeam;
+  },
+
   // -------------------------------------------------------------
   // STAFF & USER MANAGEMENT (MASTER ADMIN, SUB-ADMIN, MODERATOR)
   // -------------------------------------------------------------
@@ -855,7 +891,7 @@ export const AllocationDatabase = {
       const stored = localStorage.getItem(STAFF_STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           // Always ensure the root master admin exists in the list
           const hasRoot = parsed.some(u => isRootMasterAccount(u));
           if (!hasRoot) {
@@ -1126,7 +1162,7 @@ export const AllocationDatabase = {
       const stored = localStorage.getItem(POWERS_STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed;
         }
       }

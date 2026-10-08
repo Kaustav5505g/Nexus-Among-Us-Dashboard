@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import StartScreen from './components/StartScreen';
 import GameScreen from './screens/GameScreen';
 import LeaderboardScreen from './components/LeaderboardScreen';
@@ -10,6 +11,7 @@ interface AppProps {
 }
 
 const App: React.FC<AppProps> = ({ initialTeamName = '' }) => {
+  const navigate = useNavigate();
   const [status, setStatus] = useState<GameStatus>('START');
   const [teamName, setTeamName] = useState('');
   const [finalScore, setFinalScore] = useState(0);
@@ -77,22 +79,33 @@ const App: React.FC<AppProps> = ({ initialTeamName = '' }) => {
     setAwardNotice('');
   };
 
+  const [teamScore, setTeamScore] = useState(0);
+  useEffect(() => {
+    try {
+      const sessionRaw = localStorage.getItem('nexus_player_session');
+      if (sessionRaw) {
+        const session = JSON.parse(sessionRaw);
+        if (session?.teamId) {
+           const team = AllocationDatabase.getTeams().find(t => t.id === session.teamId);
+           if (team) setTeamScore(team.score || 0);
+        }
+      }
+    } catch(e) {}
+  }, []);
+
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-4">
-      {/* Top Navbar */}
-      <div className="w-full max-w-3xl flex items-center justify-between mb-4">
-        <button
-          onClick={() => window.location.replace('/player')}
-          className="px-3 py-1.5 bg-neutral-900 border border-neutral-700 hover:border-neutral-500 rounded text-xs font-mono transition text-neutral-300"
-        >
-          ← Return to Player Terminal
-        </button>
-        {awardNotice && (
-          <div className="bg-emerald-950 border border-emerald-500 text-emerald-200 px-3 py-1 rounded text-xs font-mono font-bold animate-pulse">
-            {awardNotice}
-          </div>
-        )}
-      </div>
+    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-4 relative pt-16">
+      {/* Unified Header */}
+      <header style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 20px', width: '100%', position: 'absolute', top: 0, left: 0, zIndex: 100 }}>
+        <button onClick={() => navigate('/player')} style={{ padding: '8px 16px', background: 'rgba(0,0,0,0.5)', color: 'white', border: '1px solid #4ade80', borderRadius: '4px', cursor: 'pointer', zIndex: 100 }}>← Back</button>
+        <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#4ade80', background: 'rgba(0,0,0,0.5)', padding: '8px 16px', borderRadius: '4px', zIndex: 100 }}>Score: {teamScore}</div>
+      </header>
+      
+      {awardNotice && (
+        <div className="bg-emerald-950 border border-emerald-500 text-emerald-200 px-3 py-1 rounded text-xs font-mono font-bold animate-pulse absolute top-16 z-50 text-center">
+          {awardNotice}
+        </div>
+      )}
 
       <div className="w-full max-w-3xl">
         {status === 'START' && (
@@ -121,14 +134,6 @@ const App: React.FC<AppProps> = ({ initialTeamName = '' }) => {
               isGameOver={status === 'GAME_OVER' || status === 'VICTORY'}
               isVictory={status === 'VICTORY'}
             />
-            <div className="mt-4 text-center">
-              <button
-                onClick={() => window.location.replace('/player')}
-                className="px-6 py-2.5 bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 rounded text-xs font-mono uppercase tracking-wider text-white"
-              >
-                ← Back to Gameplay Terminal
-              </button>
-            </div>
           </div>
         )}
       </div>

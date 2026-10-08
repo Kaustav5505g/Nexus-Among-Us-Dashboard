@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Trophy } from 'lucide-react';
 import { AllocationDatabase } from '../lib/gameDatabase';
 import '../index.css';
@@ -11,6 +12,7 @@ const MAX_ATTEMPTS = 6;
 const TOTAL_ROUNDS = 2;
 
 export default function WordleClone({ onUnlock = () => {} }) {
+  const navigate = useNavigate();
 
   // Local Game State
   const [targetWord, setTargetWord] = useState('');
@@ -38,6 +40,20 @@ export default function WordleClone({ onUnlock = () => {} }) {
   }, []);
 
   // Check Unlock Logic (Triggered on Round Completion)
+  const [teamScore, setTeamScore] = useState(0);
+  useEffect(() => {
+    try {
+      const sessionRaw = localStorage.getItem('nexus_player_session');
+      if (sessionRaw) {
+        const session = JSON.parse(sessionRaw);
+        if (session?.teamId) {
+           const team = AllocationDatabase.getTeams().find(t => t.id === session.teamId);
+           if (team) setTeamScore(team.score || 0);
+        }
+      }
+    } catch(e) {}
+  }, [localWins]);
+
   const handleWin = () => {
     const newLocalWins = localWins + 1;
     setLocalWins(newLocalWins);
@@ -47,13 +63,8 @@ export default function WordleClone({ onUnlock = () => {} }) {
       if (sessionRaw) {
         const session = JSON.parse(sessionRaw);
         if (session?.teamId) {
-          const res = AllocationDatabase.recordGameCompletion(
-            session.teamId,
-            'wordle',
-            'Wordle Decoder',
-            guesses.length + 1
-          );
-          if (res.success) {
+          const res = AllocationDatabase.markGameCompleted(session.teamId, 'wordle', 5);
+          if (res) {
             setAwardNotice(`✅ MISSION ACCOMPLISHED! Wordle station verified for Team ${session.teamName || session.teamId}. Logged to central control.`);
           }
         }
@@ -182,18 +193,10 @@ export default function WordleClone({ onUnlock = () => {} }) {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col">
-      <header className="border-b border-gray-700 p-4 flex items-center justify-between max-w-6xl mx-auto w-full">
-        <button
-          onClick={() => window.location.replace('/player')}
-          className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 rounded text-xs font-mono transition"
-        >
-          ← Return to Player Terminal
-        </button>
-        <h1 className="text-2xl font-bold tracking-wider">Wordle Terminal</h1>
-        <div className="text-xs font-mono text-emerald-400">
-          Nexus Station Mission
-        </div>
+    <div className="min-h-screen bg-gray-900 text-white flex flex-col relative pt-16">
+      <header style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 20px', width: '100%', position: 'absolute', top: 0, left: 0, zIndex: 100 }}>
+        <button onClick={() => navigate('/player')} style={{ padding: '8px 16px', background: 'rgba(0,0,0,0.5)', color: 'white', border: '1px solid #4ade80', borderRadius: '4px', cursor: 'pointer' }}>← Back</button>
+        <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#4ade80', background: 'rgba(0,0,0,0.5)', padding: '8px 16px', borderRadius: '4px' }}>Score: {teamScore}</div>
       </header>
 
       {awardNotice && (

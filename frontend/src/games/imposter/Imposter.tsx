@@ -10,40 +10,34 @@ export interface ImpostorPower {
 
 export const IMPOSTOR_POWERS: ImpostorPower[] = [
   {
-    name: 'Sabotage Lights',
-    title: '⚡ Sabotage Lights',
-    desc: 'Kill power to sector lighting to cause room darkness',
+    name: 'Wordle Sabotage',
+    title: 'Wordle Sabotage',
+    desc: 'Sabotage the Wordle terminal',
     targetRequired: false,
   },
   {
-    name: 'Door Lockdown',
-    title: '🚪 Door Lockdown',
-    desc: 'Seal sector doors & freeze target crewmate squad for 40s',
-    targetRequired: true,
-  },
-  {
-    name: 'Comms Blackout',
-    title: '📻 Comms Blackout',
-    desc: 'Disrupt radio signals and clue deciphering for target squad',
-    targetRequired: true,
-  },
-  {
-    name: 'Terminal Freeze',
-    title: '❄️ Terminal Freeze',
-    desc: 'Freeze target crewmate team terminal, disabling all actions for 40s',
-    targetRequired: true,
-  },
-  {
-    name: 'Fake Task Signal',
-    title: '🎭 Fake Task Signal',
-    desc: 'Broadcast fraudulent completion to fool crewmates',
+    name: 'Emoji Sabotage',
+    title: 'Emoji Sabotage',
+    desc: 'Sabotage the Emoji terminal',
     targetRequired: false,
   },
   {
-    name: 'Fake Clue Inject',
-    title: '🧩 Fake Clue Inject',
-    desc: 'Transmit corrupted forensic clue decipher to confuse target crewmates',
-    targetRequired: true,
+    name: 'Meme Sabotage',
+    title: 'Meme Sabotage',
+    desc: 'Sabotage the Meme Decoder terminal',
+    targetRequired: false,
+  },
+  {
+    name: 'MonkeyType Sabotage',
+    title: 'MonkeyType Sabotage',
+    desc: 'Sabotage the Code Typer terminal',
+    targetRequired: false,
+  },
+  {
+    name: 'Pacman Sabotage',
+    title: 'Pacman Sabotage',
+    desc: 'Sabotage the Pacman terminal',
+    targetRequired: false,
   },
 ];
 
@@ -73,7 +67,7 @@ export default function Imposter({
       <div className="role-banner" id="roleBanner">
         <div className="role-tag role-impostor" id="roleTag">⚡ ROLE: COVERT IMPOSTOR</div>
         <div className="role-desc" id="roleDesc">
-          You are the covert Impostor team in {roomName}! Deceive the crewmates, trigger room sabotages, and target enemy squads.
+          You are the covert Impostor team in {roomName}! Deceive the crewmates, trigger room sabotages on the map.
         </div>
       </div>
 
@@ -83,7 +77,7 @@ export default function Imposter({
         </div>
       )}
 
-      <div className="target-box">
+      <div className="target-box" style={{ marginBottom: '16px' }}>
         <div className="target-header">
           <span>🎯 Select Target Crewmate Squad:</span>
           <span style={{ color: '#a1a1aa', fontWeight: 'normal', fontSize: '10px' }}>
@@ -115,36 +109,64 @@ export default function Imposter({
         )}
       </div>
 
-      <div className="powers-section" id="powersSection">
-        <div className="powers-header">
+      <div className="powers-section" id="powersSection" style={{ padding: 0, background: 'transparent', border: 'none' }}>
+        <div className="powers-header" style={{ marginBottom: '10px' }}>
           <span id="powersHeaderTitle">Impostor Sabotage Console</span>
           <span id="cooldownNotice" style={{ color: '#a1a1aa', fontWeight: 'normal' }}>
             {isCoolingDown ? 'Cooldown Active' : 'Ready'}
           </span>
         </div>
-        <div className="powers-grid" id="powersGrid">
-          {IMPOSTOR_POWERS.map(power => {
-            const cooldown = cooldowns[power.name] || 0;
-            return (
-              <button
-                key={power.name}
-                className="power-btn"
-                disabled={cooldown > 0}
-                onClick={() => onTriggerPower(power)}
-                data-power={power.name}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                  <span className="power-btn-title">
-                    {cooldown > 0 ? `${power.name} (${cooldown}s)` : power.title}
-                  </span>
-                  <span className={`power-scope-badge ${power.targetRequired ? 'scope-targeted' : 'scope-room'}`}>
-                    {power.targetRequired ? '🎯 Targeted' : '🌐 Room'}
-                  </span>
-                </div>
-                <span className="power-btn-desc">{power.desc}</span>
-              </button>
-            );
-          })}
+        
+        <div className="imposter-map-container">
+          <button 
+            className={`sabotage-btn ${cooldowns['Wordle Sabotage'] ? 'cooldown' : ''}`} 
+            style={{ top: '60%', left: '65%' }} // Admin
+            onClick={() => onTriggerPower(IMPOSTOR_POWERS[0])}
+            disabled={cooldowns['Wordle Sabotage'] > 0}
+            title="Wordle Sabotage (Admin)"
+          >
+            W
+          </button>
+          
+          <button 
+            className={`sabotage-btn ${cooldowns['Emoji Sabotage'] ? 'cooldown' : ''}`} 
+            style={{ top: '85%', left: '60%' }} // Coms
+            onClick={() => onTriggerPower(IMPOSTOR_POWERS[1])}
+            disabled={cooldowns['Emoji Sabotage'] > 0}
+            title="Emoji Sabotage (Coms)"
+          >
+            E
+          </button>
+          
+          <button 
+            className={`sabotage-btn ${cooldowns['Meme Sabotage'] ? 'cooldown' : ''}`} 
+            style={{ top: '50%', left: '10%' }} // Reactor
+            onClick={() => onTriggerPower(IMPOSTOR_POWERS[2])}
+            disabled={cooldowns['Meme Sabotage'] > 0}
+            title="Meme Sabotage (Reactor)"
+          >
+            M
+          </button>
+          
+          <button 
+            className={`sabotage-btn ${cooldowns['MonkeyType Sabotage'] ? 'cooldown' : ''}`} 
+            style={{ top: '40%', left: '65%' }} // O2
+            onClick={() => onTriggerPower(IMPOSTOR_POWERS[3])}
+            disabled={cooldowns['MonkeyType Sabotage'] > 0}
+            title="MonkeyType Sabotage (O2)"
+          >
+            C
+          </button>
+
+          <button 
+            className={`sabotage-btn ${cooldowns['Pacman Sabotage'] ? 'cooldown' : ''}`} 
+            style={{ top: '15%', left: '50%' }} // Cafeteria
+            onClick={() => onTriggerPower(IMPOSTOR_POWERS[4])}
+            disabled={cooldowns['Pacman Sabotage'] > 0}
+            title="Pacman Sabotage (Cafeteria)"
+          >
+            P
+          </button>
         </div>
       </div>
     </>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './Emoji.css';
 import { Trophy } from 'lucide-react';
 import { AllocationDatabase } from '../../lib/gameDatabase';
@@ -53,6 +54,7 @@ const shuffleArray = (array) => {
 };
 
 export default function MovieEmoji({ onUnlock = () => {} }) {
+  const navigate = useNavigate();
   const [gameMovies, setGameMovies] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
@@ -63,6 +65,20 @@ export default function MovieEmoji({ onUnlock = () => {} }) {
   const [showUnlockModal, setShowUnlockModal] = useState(null);
   const [localWins, setLocalWins] = useState(0);
   const [awardNotice, setAwardNotice] = useState('');
+
+  const [teamScore, setTeamScore] = useState(0);
+  useEffect(() => {
+    try {
+      const sessionRaw = localStorage.getItem('nexus_player_session');
+      if (sessionRaw) {
+        const session = JSON.parse(sessionRaw);
+        if (session?.teamId) {
+           const team = AllocationDatabase.getTeams().find(t => t.id === session.teamId);
+           if (team) setTeamScore(team.score || 0);
+        }
+      }
+    } catch(e) {}
+  }, []);
 
   const inputRef = useRef(null);
 
@@ -186,6 +202,10 @@ export default function MovieEmoji({ onUnlock = () => {} }) {
     return (
       /* WRAPPER ADDED HERE */
       <div className="emoji-game-wrapper">
+        <header style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 20px', width: '100%', position: 'absolute', top: 0, left: 0, zIndex: 100 }}>
+          <button onClick={() => navigate('/player')} style={{ padding: '8px 16px', background: 'rgba(0,0,0,0.5)', color: 'white', border: '1px solid #4ade80', borderRadius: '4px', cursor: 'pointer', zIndex: 100 }}>← Back</button>
+          <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#4ade80', background: 'rgba(0,0,0,0.5)', padding: '8px 16px', borderRadius: '4px', zIndex: 100 }}>Score: {teamScore}</div>
+        </header>
         <div className="app-container">
           <div className="intro-card">
             <div className="intro-content">
@@ -206,6 +226,10 @@ export default function MovieEmoji({ onUnlock = () => {} }) {
     return (
       /* WRAPPER ADDED HERE */
       <div className="emoji-game-wrapper">
+        <header style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 20px', width: '100%', position: 'absolute', top: 0, left: 0, zIndex: 100 }}>
+          <button onClick={() => navigate('/player')} style={{ padding: '8px 16px', background: 'rgba(0,0,0,0.5)', color: 'white', border: '1px solid #4ade80', borderRadius: '4px', cursor: 'pointer', zIndex: 100 }}>← Back</button>
+          <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#4ade80', background: 'rgba(0,0,0,0.5)', padding: '8px 16px', borderRadius: '4px', zIndex: 100 }}>Score: {teamScore}</div>
+        </header>
         <div className="app-container">
           <div className="game-card">
             <h1>Game Complete!</h1>
@@ -219,7 +243,6 @@ export default function MovieEmoji({ onUnlock = () => {} }) {
             <p style={{ fontSize: '0.9rem', opacity: 0.7, marginTop: '8px' }}>{score / 10} / {gameMovies.length} correct</p>
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '12px' }}>
               <button className="game-btn btn-submit" onClick={() => { setCurrentIndex(0); setScore(0); setUserInput(''); setGameStatus('playing'); setLocalWins(0); setShowIntro(true); setGameMovies(shuffleArray(MOVIE_POOL).slice(0, TOTAL_QUESTIONS)); }}>Play Again</button>
-              <button className="game-btn" style={{ background: '#1e293b', color: '#fff' }} onClick={() => window.location.replace('/player')}>← Back to Player Terminal</button>
             </div>
           </div>
         </div>
@@ -231,6 +254,10 @@ export default function MovieEmoji({ onUnlock = () => {} }) {
   return (
     /* WRAPPER ADDED HERE */
     <div className="emoji-game-wrapper">
+      <header style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 20px', width: '100%', position: 'absolute', top: 0, left: 0, zIndex: 100 }}>
+        <button onClick={() => navigate('/player')} style={{ padding: '8px 16px', background: 'rgba(0,0,0,0.5)', color: 'white', border: '1px solid #4ade80', borderRadius: '4px', cursor: 'pointer', zIndex: 100 }}>← Back</button>
+        <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#4ade80', background: 'rgba(0,0,0,0.5)', padding: '8px 16px', borderRadius: '4px', zIndex: 100 }}>Score: {teamScore}</div>
+      </header>
       <div className="app-container">
         <div className="game-card" onClick={() => inputRef.current?.focus()}>
 

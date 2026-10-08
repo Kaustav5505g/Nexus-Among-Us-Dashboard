@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import TypingTest from './components/TypingTest';
 import ResultView from './components/ResultView';
@@ -10,6 +10,7 @@ import { AllocationDatabase } from '../../lib/gameDatabase';
 import './App.css';
 
 const MonkeyType: React.FC = () => {
+  const navigate = useNavigate();
   const [settings, setSettings] = useState<TestSettings>({
     theme: 'dark'
   });
@@ -64,31 +65,35 @@ const MonkeyType: React.FC = () => {
     setIsTestRunning(false);
   };
 
+  const [teamScore, setTeamScore] = useState(0);
+  useEffect(() => {
+    try {
+      const sessionRaw = localStorage.getItem('nexus_player_session');
+      if (sessionRaw) {
+        const session = JSON.parse(sessionRaw);
+        if (session?.teamId) {
+           const team = AllocationDatabase.getTeams().find(t => t.id === session.teamId);
+           if (team) setTeamScore(team.score || 0);
+        }
+      }
+    } catch(e) {}
+  }, []);
+
   return (
     <div
-      className="min-h-screen flex flex-col transition-colors duration-300"
+      className="min-h-screen flex flex-col transition-colors duration-300 relative pt-16"
       style={{ backgroundColor: activeTheme.bgColor, color: activeTheme.subColor }}
     >
-      <Navbar
-        theme={activeTheme}
-        onToggleThemeSelector={() => setShowThemeSelector(!showThemeSelector)}
-        isTestRunning={isTestRunning}
-        onReset={resetTest}
-      />
-
-      <div className="max-w-5xl mx-auto w-full px-4 pt-2 flex items-center justify-between">
-        <button
-          onClick={() => window.location.replace('/player')}
-          className="px-3 py-1 bg-neutral-900 border border-neutral-700 hover:border-neutral-500 rounded text-xs font-mono transition text-neutral-300"
-        >
-          ← Return to Player Terminal
-        </button>
-        {awardNotice && (
-          <div className="bg-emerald-950 border border-emerald-500 text-emerald-200 px-3 py-1 rounded text-xs font-mono font-bold animate-pulse">
-            {awardNotice}
-          </div>
-        )}
-      </div>
+      <header style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 20px', width: '100%', position: 'absolute', top: 0, left: 0, zIndex: 100 }}>
+        <button onClick={() => navigate('/player')} style={{ padding: '8px 16px', background: 'rgba(0,0,0,0.5)', color: 'white', border: '1px solid #4ade80', borderRadius: '4px', cursor: 'pointer', zIndex: 100 }}>← Back</button>
+        <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#4ade80', background: 'rgba(0,0,0,0.5)', padding: '8px 16px', borderRadius: '4px', zIndex: 100 }}>Score: {teamScore}</div>
+      </header>
+      
+      {awardNotice && (
+        <div className="bg-emerald-950 border border-emerald-500 text-emerald-200 px-3 py-1 rounded text-xs font-mono font-bold animate-pulse text-center">
+          {awardNotice}
+        </div>
+      )}
 
       <main className="flex-1 flex flex-col items-center justify-center px-4 py-8 max-w-5xl mx-auto w-full">
         <div className="w-full">

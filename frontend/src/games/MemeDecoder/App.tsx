@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { memeData, Meme } from './memeData';
 import { Terminal, Scan, CheckCircle2, XCircle, Play, RotateCcw } from 'lucide-react';
 import { AllocationDatabase } from '../../lib/gameDatabase';
@@ -6,6 +7,7 @@ import { AllocationDatabase } from '../../lib/gameDatabase';
 type GameState = 'start' | 'playing' | 'won' | 'lost';
 
 export default function MemeDecoder() {
+  const navigate = useNavigate();
   const [gameState, setGameState] = useState<GameState>('start');
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [userInput, setUserInput] = useState<string>('');
@@ -203,6 +205,20 @@ export default function MemeDecoder() {
     );
   };
 
+  const [teamScore, setTeamScore] = useState(0);
+  useEffect(() => {
+    try {
+      const sessionRaw = localStorage.getItem('nexus_player_session');
+      if (sessionRaw) {
+        const session = JSON.parse(sessionRaw);
+        if (session?.teamId) {
+           const team = AllocationDatabase.getTeams().find(t => t.id === session.teamId);
+           if (team) setTeamScore(team.score || 0);
+        }
+      }
+    } catch(e) {}
+  }, []);
+
   return (
     <div className="min-h-screen bg-zinc-950 text-green-500 font-mono p-4 flex flex-col items-center justify-center relative overflow-hidden">
 
@@ -211,22 +227,9 @@ export default function MemeDecoder() {
       <div className="absolute inset-0 pointer-events-none z-50 animate-pulse opacity-5 bg-green-900 mix-blend-overlay"></div>
 
       {/* Header */}
-      <header className="w-full max-w-4xl flex justify-between items-center mb-8 border-b-2 border-green-800 pb-4 z-10">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => window.location.replace('/player')}
-            className="px-3 py-1 bg-zinc-900 border border-green-800 hover:border-green-500 text-xs text-green-400 rounded transition"
-          >
-            ← Back to Player
-          </button>
-          <div className="flex items-center gap-2">
-            <Terminal className="w-6 h-6" />
-            <h1 className="text-2xl font-bold tracking-tighter uppercase glow-text">Meme_Decoder.exe</h1>
-          </div>
-        </div>
-        <div className="text-xl">
-          {currentIndex + 1} / {gameMemes.length || '?'}
-        </div>
+      <header style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 20px', width: '100%', position: 'absolute', top: 0, left: 0, zIndex: 100 }}>
+        <button onClick={() => navigate('/player')} style={{ padding: '8px 16px', background: 'rgba(0,0,0,0.5)', color: 'white', border: '1px solid #4ade80', borderRadius: '4px', cursor: 'pointer', zIndex: 100 }}>← Back</button>
+        <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#4ade80', background: 'rgba(0,0,0,0.5)', padding: '8px 16px', borderRadius: '4px', zIndex: 100 }}>Score: {teamScore}</div>
       </header>
 
       {/* Game Content */}
@@ -332,7 +335,7 @@ export default function MemeDecoder() {
                   Reboot System
                 </button>
                 <button
-                  onClick={() => window.location.replace('/player')}
+                  onClick={() => navigate('/player')}
                   className="px-6 py-3 bg-green-950 border border-green-600 hover:bg-green-900 text-green-300 transition-all uppercase tracking-widest"
                 >
                   ← Player Terminal
