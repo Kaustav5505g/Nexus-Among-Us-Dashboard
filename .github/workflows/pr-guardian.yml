@@ -1,4 +1,8 @@
 name: PR Guardian & Maintainer Verification
+permissions:
+  issues: write
+  pull-requests: write
+  contents: read
 
 on:
   pull_request:
