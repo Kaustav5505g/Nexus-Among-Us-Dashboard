@@ -821,7 +821,8 @@ export const AllocationDatabase = {
       console.warn('Failed to parse staff users from localStorage', e);
     }
     try {
-      localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(INITIAL_STAFF_USERS));
+      const sanitizedInitial = INITIAL_STAFF_USERS.map(({ password: _pwd, ...rest }) => rest);
+      localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(sanitizedInitial));
     } catch (e) {}
     return INITIAL_STAFF_USERS;
   },
@@ -835,7 +836,9 @@ export const AllocationDatabase = {
       if (rootAccount && !finalUsers.some(u => isRootMasterAccount(u))) {
         finalUsers.unshift(rootAccount);
       }
-      localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(finalUsers));
+      // Never persist cleartext passwords in browser client storage (CWE-312 / CodeQL Alert #11)
+      const sanitizedUsers = finalUsers.map(({ password: _pwd, ...rest }) => rest);
+      localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(sanitizedUsers));
     } catch (e) {
       console.error('Failed to save staff users to localStorage', e);
     }
@@ -1730,11 +1733,12 @@ export const AllocationDatabase = {
           name: s.name,
           email: s.email,
           role: s.role,
-          password: s.password || '',
           pocRoom: s.poc_room || undefined,
           title: s.title || undefined,
         }));
-        localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(mappedStaff));
+        // Never persist cleartext passwords in browser client storage (CWE-312 / CodeQL Alert #12)
+        const sanitizedStaff = mappedStaff.map(({ password: _pwd, ...rest }) => rest);
+        localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(sanitizedStaff));
         staffCount = mappedStaff.length;
       }
 

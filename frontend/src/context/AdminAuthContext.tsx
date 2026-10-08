@@ -63,13 +63,17 @@ const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefin
 
 export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AdminUser | null>(() => {
-    const saved = localStorage.getItem('nexus_admin_user');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return null;
+    try {
+      const saved = sessionStorage.getItem('nexus_admin_session') || localStorage.getItem('nexus_admin_user');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          const { password: _pwd, ...safeUser } = parsed;
+          return safeUser as AdminUser;
+        }
       }
+    } catch {
+      return null;
     }
     // No automatic default login; require explicit authentication
     return null;
@@ -77,10 +81,25 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   useEffect(() => {
     if (user) {
-      localStorage.setItem('nexus_admin_user', JSON.stringify(user));
+      // Never store cleartext passwords/credentials in client storage (CWE-312 / CodeQL Alert #10)
+      const safeSession: Omit<AdminUser, 'password'> = {
+        id: user.id,
+        facilitatorId: user.facilitatorId,
+        username: user.username,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        pocRoom: user.pocRoom,
+        title: user.title,
+      };
+      sessionStorage.setItem('nexus_admin_session', JSON.stringify(safeSession));
     } else {
-      localStorage.removeItem('nexus_admin_user');
+      sessionStorage.removeItem('nexus_admin_session');
     }
+    // Clean up any legacy cleartext storage
+    try {
+      localStorage.removeItem('nexus_admin_user');
+    } catch {}
   }, [user]);
 
   // Synchronize staff and database from Supabase on provider initialization
@@ -232,6 +251,10 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const logout = () => {
     setUser(null);
+    try {
+      sessionStorage.removeItem('nexus_admin_session');
+      localStorage.removeItem('nexus_admin_user');
+    } catch {}
   };
 
   const permissions = user ? getRolePermissions(user.role) : null;
