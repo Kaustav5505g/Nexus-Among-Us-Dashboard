@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AllocationDatabase } from '../lib/gameDatabase';
 import { supabase } from '../lib/supabase';
+import Crewmate from '../games/crewmate/Crewmate';
+import Imposter, { IMPOSTOR_POWERS, ImpostorPower } from '../games/imposter/Imposter';
 import { Team, TeamActiveEffect } from '../types';
 import './Player.css';
 
@@ -15,78 +17,6 @@ interface PlayerSession {
   eventStatus?: string;
   currentRound?: string | number;
 }
-
-const IMPOSTOR_POWERS = [
-  {
-    name: 'Sabotage Lights',
-    title: '⚡ Sabotage Lights',
-    desc: 'Kill power to sector lighting to cause room darkness',
-    targetRequired: false,
-  },
-  {
-    name: 'Door Lockdown',
-    title: '🚪 Door Lockdown',
-    desc: 'Seal sector doors & freeze target crewmate squad for 40s',
-    targetRequired: true,
-  },
-  {
-    name: 'Comms Blackout',
-    title: '📻 Comms Blackout',
-    desc: 'Disrupt radio signals and clue deciphering for target squad',
-    targetRequired: true,
-  },
-  {
-    name: 'Terminal Freeze',
-    title: '❄️ Terminal Freeze',
-    desc: 'Freeze target crewmate team terminal, disabling all actions for 40s',
-    targetRequired: true,
-  },
-  {
-    name: 'Fake Task Signal',
-    title: '🎭 Fake Task Signal',
-    desc: 'Broadcast fraudulent completion to fool crewmates',
-    targetRequired: false,
-  },
-  {
-    name: 'Fake Clue Inject',
-    title: '🧩 Fake Clue Inject',
-    desc: 'Transmit corrupted forensic clue decipher to confuse target crewmates',
-    targetRequired: true,
-  },
-];
-
-const CREWMATE_TASKS = [
-  {
-    title: 'Play Wordle',
-    desc: 'Decipher the secret word',
-    icon: '🎮',
-    route: '/games/wordle',
-  },
-  {
-    title: 'Emoji Decoder',
-    desc: 'Guess the phrase from emojis',
-    icon: '🎭',
-    route: '/games/emoji',
-  },
-  {
-    title: 'Meme Decoder',
-    desc: 'Decode the popular memes',
-    icon: '🖼️',
-    route: '/games/memedecoder',
-  },
-  {
-    title: 'Code Typer',
-    desc: 'Test your typing speed',
-    icon: '⌨️',
-    route: '/games/monkeytype',
-  },
-  {
-    title: 'Pacman',
-    desc: 'Classic arcade survival',
-    icon: '👻',
-    route: '/games/pacman',
-  },
-];
 
 export default function Player() {
   const navigate = useNavigate();
@@ -286,7 +216,7 @@ export default function Player() {
   const eventStatus = session?.eventStatus || 'active';
   const round = session?.currentRound ?? '1';
 
-  const handleTriggerPower = (power: typeof IMPOSTOR_POWERS[0]) => {
+  const handleTriggerPower = (power: ImpostorPower) => {
     if (cooldowns[power.name] && cooldowns[power.name] > 0) return;
 
     let targetTeamObj = targetTeams.find(
@@ -353,136 +283,23 @@ export default function Player() {
             Your team allocation, player role, and live event status are synchronized with the NEXUS operations database.
           </p>
 
-          {/* Dynamic Impostor / Crewmate Role Banner */}
-          <div className="role-banner" id="roleBanner">
-            {isImpostor ? (
-              <>
-                <div className="role-tag role-impostor" id="roleTag">
-                  ⚡ ROLE: COVERT IMPOSTOR
-                </div>
-                <div className="role-desc" id="roleDesc">
-                  You are the covert Impostor team in {roomName}! Deceive the crewmates, trigger room sabotages, and target enemy squads.
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="role-tag role-crewmate" id="roleTag">
-                  🛡️ ROLE: CREWMATE
-                </div>
-                <div className="role-desc" id="roleDesc">
-                  You are a loyal Crewmate team in {roomName}! Complete station missions, clear sabotages, and expose the Impostor.
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Action Toast Feedback */}
-          {toastMessage ? (
-            <div className="toast-feedback" id="actionToast">
-              {toastMessage}
-            </div>
-          ) : null}
-
-          {/* Active Sabotage Alert Banner for Crewmate */}
-          {!isImpostor && activeSabotages.length > 0 && (
-            <div className="sabotage-alert">
-              <div>🚨 <strong>EMERGENCY: SECTOR SABOTAGE ACTIVE!</strong></div>
-              {activeSabotages.map(eff => (
-                <div key={eff.id} style={{ marginTop: '4px', fontSize: '11px' }}>
-                  • <strong>{eff.powerName}</strong> in effect! Active for {Math.max(1, Math.ceil((eff.expiresAt - Date.now()) / 1000))}s.
-                </div>
-              ))}
-            </div>
+          {isImpostor ? (
+            <Imposter
+              roomName={roomName}
+              targetTeams={targetTeams}
+              selectedTargetId={selectedTargetId}
+              toastMessage={toastMessage}
+              cooldowns={cooldowns}
+              onSelectTarget={setSelectedTargetId}
+              onTriggerPower={handleTriggerPower}
+            />
+          ) : (
+            <Crewmate
+              roomName={roomName}
+              activeSabotages={activeSabotages}
+              toastMessage={toastMessage}
+            />
           )}
-
-          {/* IMPOSTOR ONLY: Target Crewmate Selection Box */}
-          {isImpostor && (
-            <div className="target-box">
-              <div className="target-header">
-                <span>🎯 Select Target Crewmate Squad:</span>
-                <span style={{ color: '#a1a1aa', fontWeight: 'normal', fontSize: '10px' }}>
-                  {targetTeams.length} Targets in Sector
-                </span>
-              </div>
-
-              {targetTeams.length > 0 ? (
-                <div className="target-chips">
-                  {targetTeams.map(t => {
-                    const code = t.teamCode || t.id;
-                    const isSelected = selectedTargetId === code || selectedTargetId === t.id;
-                    return (
-                      <button
-                        key={t.id}
-                        type="button"
-                        className={`target-chip ${isSelected ? 'active' : ''}`}
-                        onClick={() => setSelectedTargetId(code)}
-                      >
-                        <span>{t.name}</span>
-                        <span style={{ opacity: 0.7 }}>[{code}]</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div style={{ fontSize: '11px', color: '#71717a' }}>
-                  No active crewmate teams currently detected in sector.
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Interactive Powers / Action Console */}
-          <div className="powers-section" id="powersSection">
-            <div className="powers-header">
-              <span id="powersHeaderTitle">
-                {isImpostor ? 'Impostor Sabotage Console' : 'Station Mini-Games Console'}
-              </span>
-              <span id="cooldownNotice" style={{ color: '#a1a1aa', fontWeight: 'normal' }}>
-                {Object.values(cooldowns).some(c => c > 0) ? 'Cooldown Active' : 'Ready'}
-              </span>
-            </div>
-
-            <div className="powers-grid" id="powersGrid">
-              {isImpostor ? (
-                IMPOSTOR_POWERS.map(power => {
-                  const cd = cooldowns[power.name] || 0;
-                  const isCooling = cd > 0;
-                  return (
-                    <button
-                      key={power.name}
-                      className="power-btn"
-                      disabled={isCooling}
-                      onClick={() => handleTriggerPower(power)}
-                      data-power={power.name}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                        <span className="power-btn-title">
-                          {isCooling ? `${power.name} (${cd}s)` : power.title}
-                        </span>
-                        <span className={`power-scope-badge ${power.targetRequired ? 'scope-targeted' : 'scope-room'}`}>
-                          {power.targetRequired ? '🎯 Targeted' : '🌐 Room'}
-                        </span>
-                      </div>
-                      <span className="power-btn-desc">{power.desc}</span>
-                    </button>
-                  );
-                })
-              ) : (
-                CREWMATE_TASKS.map(task => (
-                  <button
-                    key={task.title}
-                    className="power-btn"
-                    onClick={() => navigate(task.route)}
-                  >
-                    <span className="power-btn-title">
-                      {task.icon} {task.title}
-                    </span>
-                    <span className="power-btn-desc">{task.desc}</span>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
 
           {/* Team Allocation Info */}
           <div className="team-info-box" id="infoBox">

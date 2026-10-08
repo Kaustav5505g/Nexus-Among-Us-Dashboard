@@ -18,6 +18,52 @@ export const DEFAULT_GAME_POINTS: GamePointsConfig = {
   pacman: 60,
 };
 
+export interface CrewmateGame {
+  id: keyof GamePointsConfig;
+  title: string;
+  description: string;
+  icon: string;
+  route: string;
+}
+
+const CREWMATE_GAMES: readonly CrewmateGame[] = [
+  {
+    id: 'wordle',
+    title: 'Play Wordle',
+    description: 'Decipher the secret word',
+    icon: '🎮',
+    route: '/games/wordle',
+  },
+  {
+    id: 'emoji',
+    title: 'Emoji Decoder',
+    description: 'Guess the phrase from emojis',
+    icon: '🎭',
+    route: '/games/emoji',
+  },
+  {
+    id: 'memedecoder',
+    title: 'Meme Decoder',
+    description: 'Decode the popular memes',
+    icon: '🖼️',
+    route: '/games/memedecoder',
+  },
+  {
+    id: 'monkeytype',
+    title: 'Code Typer',
+    description: 'Test your typing speed',
+    icon: '⌨️',
+    route: '/games/monkeytype',
+  },
+  {
+    id: 'pacman',
+    title: 'Pacman',
+    description: 'Classic arcade survival',
+    icon: '👻',
+    route: '/games/pacman',
+  },
+];
+
 export const STANDARD_POWER_LIBRARY: Omit<ImpostorPowerPort, 'port'>[] = [
   {
     id: 'sabotage-lights',
@@ -345,6 +391,10 @@ async function syncLogToSupabase(log: ActivityLogItem) {
 }
 
 export const AllocationDatabase = {
+  getCrewmateGames(): CrewmateGame[] {
+    return CREWMATE_GAMES.map(game => ({ ...game }));
+  },
+
   // -------------------------------------------------------------
   // ROOMS & ZONES MANAGEMENT
   // -------------------------------------------------------------
