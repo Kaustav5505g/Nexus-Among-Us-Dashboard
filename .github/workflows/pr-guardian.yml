@@ -1,16 +1,11 @@
 name: PR Guardian & Maintainer Verification
 permissions:
+  contents: read
   issues: write
   pull-requests: write
-  contents: read
-
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-
-permissions:
-  pull-requests: write
-  contents: read
 
 jobs:
   verify-maintainer-and-integrity:
